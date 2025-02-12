@@ -1,0 +1,222 @@
+{% extends 'base.html' %}
+{% from 'utils/_macros.html' import node_info %}
+
+{% block title %}
+    {% if page_type == 'dashboard' %}节点控制面板 - JustRelay{% endif %}
+    {% if page_type == 'control' %}节点控制 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
+    {% if page_type == 'config' %}节点配置 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
+{% endblock %}
+
+{% block content %}
+    <h2>
+        {% if page_type == 'dashboard' %}节点管理{% endif %}
+        {% if page_type == 'control' %}节点控制面板{% endif %}
+        {% if page_type == 'config' %}节点配置{% endif %}
+    </h2>
+
+    {% if page_type == 'dashboard' %}
+        <p>在此页面您可以查看和管理您的节点。</p>
+
+        <h3>节点列表</h3>
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>IP 地址</th>
+                    <th>端口</th>
+                    <th>角色</th>
+                    <th>状态</th>
+                    <th>上次心跳</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for node in nodes %}
+                <tr>
+                    <td>{{ node.id }}</td>
+                    <td>{{ node.ip_address }}</td>
+                    <td>{{ node.port }}</td>
+                    <td>{{ node.role }}</td>
+                    <td>{{ node.status }}</td>
+                    <td>{{ node.last_heartbeat }}</td>
+                    <td>
+                        <a href="{{ url_for('node.control_panel', node_id=node.id) }}" class="btn btn-sm btn-primary">控制</a>
+                        <a href="{{ url_for('node.update_form', node_id=node.id) }}" class="btn btn-sm btn-secondary">修改</a>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="7">暂无节点。</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+    {% elif page_type == 'control' %}
+        <h3>{{ node.ip_address }}:{{ node.port }}</h3>
+        {{ node_info(node) }}
+
+        <div class="mt-3">
+            <h3>控制操作</h3>
+            <button class="btn btn-success" onclick="sendCommand('start')">启动</button>
+            <button class="btn btn-warning" onclick="sendCommand('restart')">重启</button>
+            <button class="btn btn-danger" onclick="sendCommand('stop')">停止</button>
+            <button class="btn btn-sm btn-danger" onclick="sendCommand('delete')">删除</button>
+            <button class="btn btn-sm btn-secondary" onclick="showUpdateForm()">修改节点信息</button> <!-- 修改节点信息的按钮 -->
+        </div>
+
+        <!-- 修改节点信息的表单 (初始隐藏) -->
+        <div id="updateForm" style="display: none;" class="mt-3">
+            <h3>修改节点信息</h3>
+            <form id="updateNodeForm">
+                <div class="form-group">
+                    <label for="role">角色:</label>
+                    <select class="form-control" id="role" name="role">
+                        <option value="ingress" {% if node.role == 'ingress' %}selected{% endif %}>入口 (ingress)</option>
+                        <option value="egress" {% if node.role == 'egress' %}selected{% endif %}>出口 (egress)</option>
+                        <option value="both" {% if node.role == 'both' %}selected{% endif %}>两者 (both)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="protocols">协议:</label>
+                    <input type="text" class="form-control" id="protocols" name="protocols" value="{{ node.protocols }}">
+                </div>
+                <div class="form-group">
+                    <label for="secret_key">密钥:</label>
+                    <input type="text" class="form-control" id="secret_key" name="secret_key" value="{{ node.secret_key }}">
+                </div>
+                <div class="form-group">
+                    <label for="status">状态:</label>
+                    <select class="form-control" id="status" name="status">
+                        <option value="online" {% if node.status == 'online' %}selected{% endif %}>在线</option>
+                        <option value="offline" {% if node.status == 'offline' %}selected{% endif %}>离线</option>
+                        <option value="suspended" {% if node.status == 'suspended' %}selected{% endif %}>暂停</option>
+                        <option value="deleted" {% if node.status == 'deleted' %}selected{% endif %}>删除</option>
+                    </select>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="updateNode()">保存</button>
+                <button type="button" class="btn btn-secondary" onclick="hideUpdateForm()">取消</button>
+            </form>
+        </div>
+
+
+        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+        <script>
+            function sendCommand(command) {
+                $.ajax({
+                    url: "{{ url_for('node.send_command', node_id=node.id) }}",
+                    type: "POST",
+                    data: JSON.stringify({ command: command }), //  确保 data 被序列化为 JSON 字符串
+                    contentType: 'application/json',          //  明确设置 Content-Type 为 application/json
+                    headers: {
+                        "X-Secret-Key": "{{ node.secret_key }}"
+                    },
+                    success: function(response) {
+                        if (response && response.message) {
+                            alert(response.message);
+                        } else {
+                            alert("命令执行成功");
+                        }
+                        if (command === 'delete') {
+                            alert("节点已删除");
+                            window.location.href = "{{ url_for('node.dashboard') }}";
+                        }
+                        // 可以根据 response.status 更新页面上的节点状态显示 (可选)
+                    },
+                    error: function(error) {
+                        if (error.responseJSON && error.responseJSON.message) { // 检查 responseJSON 是否存在
+                            alert("Error sending command: " + error.responseJSON.message);
+                        } else if (error.responseText) { // 如果 responseJSON 不存在，尝试使用 responseText
+                            alert("Error sending command: " + error.responseText); // 显示原始文本错误信息
+                        } else {
+                            alert("An unknown error occurred."); //  最后的兜底错误提示
+                        }
+                    }
+                });
+            }
+
+            function showUpdateForm() {
+                $("#updateForm").show();
+            }
+
+            function hideUpdateForm() {
+                $("#updateForm").hide();
+            }
+
+
+            function updateNode() {
+                // 1. 获取表单数据
+                var role = $("#role").val();
+                var protocols = $("#protocols").val();
+                var secret_key = $("#secret_key").val();
+                var status = $("#status").val();
+
+                // 2. 构建 PATCH 请求的 JSON 数据
+                var updateData = {
+                    role: role,
+                    protocols: protocols,
+                    secret_key: secret_key,
+                    status: status,
+                };
+
+
+                // 3. 发送 PATCH 请求
+                $.ajax({
+                    url: "{{ url_for('node.update_node', node_id=node.id) }}",
+                    type: "PATCH", // 使用 PATCH 方法
+                    data: JSON.stringify(updateData),
+                    contentType: "application/json",
+                    headers: {
+                        "X-Secret-Key": "{{ node.secret_key }}" // 传递 Secret Key
+                    },
+                    success: function(response) {
+                        alert(response.message);
+                        hideUpdateForm(); // 隐藏表单
+                        //  刷新页面或者更新节点信息 (可选)
+                        window.location.reload(); // 刷新页面以更新显示的信息
+                    },
+                    error: function(error) {
+                        if (error.responseJSON && error.responseJSON.message) {
+                            alert("Error updating node: " + error.responseJSON.message);
+                        } else {
+                            alert("An unknown error occurred while updating node.");
+                        }
+                    }
+                });
+            }
+        </script>
+    {% elif page_type == 'config' %}
+        <h3>{{ node.ip_address }}:{{ node.port }}</h3>
+        {{ node_info(node) }}
+
+        <div class="mt-3">
+            <h3>规则</h3>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th>名称</th>
+                        <th>来源</th>
+                        <th>目标</th>
+                        <th>协议</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for rule in rules %}
+                        <tr>
+                            <td>{{ rule.name }}</td>
+                            <td>{{ rule.source }}</td>
+                            <td>{{ rule.destination }}</td>
+                            <td>{{ rule.protocol }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="4">该节点没有规则。</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+    {% endif %}
+
+{% endblock %}

@@ -1,0 +1,86 @@
+{% extends 'base.html' %}
+
+{% block title %}添加转发规则 - JustRelay{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <h2>添加转发规则</h2>
+        <form method="POST" action="/relay/add">
+            <div class="mb-3">
+                <label for="name" class="form-label">规则名称</label>
+                <input type="text" class="form-control" id="name" name="name" required>
+            </div>
+            <div class="mb-3">
+                <label for="source" class="form-label">来源地址/端口</label>
+                <input type="text" class="form-control" id="source" name="source">
+                <small class="text-muted">例如: <code>0.0.0.0:8080</code> 或 <code>example.com:443</code></small>
+            </div>
+            <div class="mb-3">
+                <label for="destination" class="form-label">目标地址/端口</label>
+                <input type="text" class="form-control" id="destination" name="destination" required>
+                <small class="text-muted">例如: <code>127.0.0.1:8888</code> 或 <code>target.server:1080</code></small>
+            </div>
+            <div class="mb-3">
+                <label for="protocol" class="form-label">协议</label>
+                <select class="form-select" id="protocol" name="protocol">
+                    <option value="tcp" selected>TCP</option>
+                    <option value="udp">UDP</option>
+                    <option value="http">HTTP</option>
+                    <option value="https">HTTPS</option>
+                    <!-- 可以添加更多协议选项 -->
+                </select>
+            </div>
+
+            {% if current_user.role == 'admin' %}
+            <div class="mb-3">
+                <label for="entry_server_id" class="form-label">入口服务器</label>
+                <select class="form-select" id="entry_server_id" name="entry_server_id">
+                    <option value="">-- 选择入口服务器 --</option>
+                    {% for server in entry_servers %}
+                    <option value="{{ server.id }}">{{ server.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="exit_server_id" class="form-label">出口服务器</label>
+                <select class="form-select" id="exit_server_id" name="exit_server_id" required>
+                    <option value="">-- 选择出口服务器 --</option>
+                    {% for server in exit_servers %}
+                    <option value="{{ server.id }}">{{ server.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="user_id" class="form-label">关联用户</label>
+                <select class="form-select" id="user_id" name="user_id">
+                    <option value="">-- 选择用户 --</option>
+                    {% for user in users %}
+                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% else %}
+            <div class="mb-3">
+                <label for="exit_server_id" class="form-label">出口服务器</label>
+                <select class="form-select" id="exit_server_id" name="exit_server_id" required>
+                    <option value="">-- 选择出口服务器 --</option>
+                    {% for server in exit_servers %}
+                    <option value="{{ server.id }}">{{ server.name }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            {% endif %}
+
+
+            <button type="submit" class="btn btn-primary">添加规则</button>
+            <a href="/" class="btn btn-secondary">取消</a>
+        </form>
+         {% if error %}
+        <div class="alert alert-danger mt-3" role="alert">
+            {{ error }}
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

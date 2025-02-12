@@ -1,0 +1,41 @@
+{% extends 'base.html' %}
+
+{% block title %}主界面 - JustRelay{% endblock %}
+
+{% block content %}
+<h2>欢迎来到 JustRelay</h2>
+<p>这是您的主界面，您可以在这里查看您的转发规则和进行管理。</p>
+
+<h3>转发规则列表</h3>
+<table class="table">
+    <thead>
+        <tr>
+            <th>名称</th>
+            <th>来源</th>
+            <th>目标</th>
+            <th>协议</th>
+            <th>操作</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for rule in relay_rules %}
+        <tr>
+            <td>{{ rule.name }}</td>
+            <td>{{ rule.source }}</td>
+            <td>{{ rule.destination }}</td>
+            <td>{{ rule.protocol }}</td>
+            <td>
+                <a href="/relay/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
+                <a href="/relay/delete/{{ rule.id }}" class="btn btn-sm btn-danger">删除</a>
+            </td>
+        </tr>
+        {% else %}
+        <tr>
+            <td colspan="5">暂无转发规则，<a href="/relay/add">点击添加</a>。</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<a href="/relay/add" class="btn btn-success">添加新的转发规则</a>
+{% endblock %}

@@ -1,0 +1,9 @@
+database:
+  uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"  # 你的数据库连接字符串
+
+admin_user:
+  username: "admin"
+  password: "00..Zdw999"
+  role: "admin"
+
+secret_key: "your_secret_key" # 修改为你自己的密钥

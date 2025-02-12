@@ -1,0 +1,20 @@
+{# utils/_macros.html #}
+{% macro node_info(node) %}
+<p><strong>状态:</strong>
+    {% if node.status == 'online' %}
+        <span class="badge bg-success">在线</span>
+    {% elif node.status == 'offline' %}
+        <span class="badge bg-secondary">离线</span>
+    {% elif node.status == 'suspended' %}
+        <span class="badge bg-warning text-dark">暂停</span>
+    {% elif node.status == 'deleted' %}
+        <span class="badge bg-danger">已删除</span>  <- 添加 deleted 状态显示
+    {% else %}
+        <span class="badge bg-light text-dark">未知</span>
+    {% endif %}
+</p>
+<p><strong>IP 地址:</strong> {{ node.ip_address }}</p>
+<p><strong>端口:</strong> {{ node.port }}</p>
+<p><strong>角色:</strong> {{ node.role }}</p>
+<p><strong>上次心跳:</strong> {{ node.last_heartbeat }}</p>
+{% endmacro %}

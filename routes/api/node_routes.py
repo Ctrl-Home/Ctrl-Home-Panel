@@ -1,8 +1,14 @@
-from flask import Blueprint, request, jsonify
+import requests
+from flask import Blueprint, request, jsonify, render_template, abort, redirect, url_for
 from models import db, Node, Rule
 import datetime, secrets
 
 node_bp = Blueprint('node', __name__)
+
+@node_bp.route('/node/dashboard')
+def dashboard():
+    nodes = Node.query.all()
+    return render_template('combined_node.html', nodes=nodes, page_type='dashboard') # 传递 page_type
 
 @node_bp.route('/node/create', methods=['POST'])
 def register_node():
@@ -20,6 +26,7 @@ def register_node():
         existing_node.secret_key = data['secret_key'] # 应该允许节点更新密钥
         existing_node.status = "online"
         existing_node.last_heartbeat = datetime.datetime.utcnow()
+        existing_node.last_modified = datetime.datetime.utcnow()  # 记录修改时间
         db.session.commit()
         return jsonify({'message': 'Node updated', 'node_id': existing_node.id}), 200
 
@@ -38,28 +45,65 @@ def register_node():
     db.session.commit()
     return jsonify({'message': 'Node registered', 'node_id': new_node.id}), 201
 
-@node_bp.route('/config/<int:node_id>', methods=['GET'])
-def get_config(node_id):
-    node = Node.query.get_or_404(node_id)
-    # 验证 secret_key (防止未经授权的访问)
+@node_bp.route('/node/config/<int:node_id>', methods=['GET'])
+def config(node_id):
+    try:
+        node = Node.query.get_or_404(node_id)
+    except Exception as e:  # 捕获可能的数据库查询错误
+        return jsonify({'message': f'Internal Server Error: {str(e)}'}), 500
+
+    # 验证 secret_key
     secret_key = request.headers.get('X-Secret-Key')
     if not secret_key or secret_key != node.secret_key:
         return jsonify({'message': 'Unauthorized'}), 401
+
     # 获取适用于该节点的规则
     if node.role == "ingress" or node.role == "both":
-        rules = Rule.query.filter_by(server_id = None).all() #获取所有入口规则
+        rules = Rule.query.filter_by(server_id=None).all()  # 获取所有入口规则
     elif node.role == "egress" or node.role == "both":
-        rules = Rule.query.filter(Rule.server_id != None).all() #获取所有出口规则
+        rules = Rule.query.filter(Rule.server_id != None).all()  # 获取所有出口规则
     else:
-         return jsonify({'message':"bad request: node role error"}), 400
+        return jsonify({'message': "Bad Request: node role error"}), 400
 
-    # 将规则转换为适合节点端使用的格式 (这里只是一个示例)
-    config = {
-        'rules': [{'name': r.name, 'source': r.source, 'destination': r.destination, 'protocol': r.protocol} for r in rules]
+    # 构建 JSON 响应
+    config_data = {
+        'page_type': 'config',
+        'node': {  # 将 Node 对象转换为字典
+            'id': node.id,
+            'ip_address': node.ip_address,
+            'port': node.port,
+            'role': node.role,
+            'protocols': node.protocols,
+            'secret_key': node.secret_key,  # 密钥不能泄露
+            'status': node.status,  # 包含状态
+            'last_heartbeat': None,
+        },
+        'rules': [
+            {
+                'id': rule.id,
+                'name': rule.name,
+                'source': rule.source,
+                'destination': rule.destination,
+                'protocol': rule.protocol,
+                'server_id': rule.server_id,
+            }
+            for rule in rules
+        ]
     }
-    return jsonify(config)
 
-@node_bp.route('/heartbeat/<int:node_id>', methods=['POST'])
+    # 格式化时间戳 (UTC)
+    if node.last_heartbeat:
+        config_data['node']['last_heartbeat'] = node.last_heartbeat.isoformat() + 'Z'  #  例如： 2025-02-12T17:30:32Z
+
+    return jsonify(config_data), 200  # 返回 JSON 响应
+
+@node_bp.route('/node/control/<int:node_id>')
+def control_panel(node_id):
+    node = Node.query.get_or_404(node_id)
+    return render_template('combined_node.html', node=node, page_type='control') # 传递 page_type
+
+
+@node_bp.route('/node/heartbeat/<int:node_id>', methods=['POST'])
 def heartbeat(node_id):
     node = Node.query.get_or_404(node_id)
     secret_key = request.headers.get('X-Secret-Key')
@@ -75,4 +119,95 @@ def heartbeat(node_id):
     db.session.commit()
     return jsonify({'message': 'Heartbeat received'})
 
-# ... 其他 API (例如: 上报统计信息)
+@node_bp.route('/node/command/<int:node_id>', methods=['POST'])
+def send_command(node_id):
+    node = Node.query.get_or_404(node_id)
+    secret_key = request.headers.get('X-Secret-Key')
+    if not secret_key or secret_key != node.secret_key:
+        return jsonify({'message': 'Unauthorized'}), 401
+
+    data = request.get_json()
+    if not data or 'command' not in data:
+        return jsonify({'message': 'Bad Request: Missing command'}), 400
+
+    command = data['command']
+
+    # 构建被控端命令执行 URL
+    agent_command_url = f"http://{node.ip_address}:{node.port}/agent/command"
+    headers = {'X-Secret-Key': node.secret_key, 'Content-Type': 'application/json'}
+    command_payload = {'command': command}
+
+    try:
+        response = requests.post(agent_command_url, headers=headers, json=command_payload, timeout=10)
+        response.raise_for_status()
+
+        agent_response_data = response.json()
+        if agent_response_data.get('success'):
+            message = agent_response_data.get('message', "Command executed successfully")
+            # 根据被控端命令结果，更新节点状态
+            if command == 'start' or command == 'restart':
+                node.status = 'online'
+            elif command == 'stop':
+                node.status = 'offline'
+            elif command == 'suspend':
+                node.status = 'suspended'
+            elif command == 'delete':
+                node.status = 'deleted'
+            db.session.commit()  # 提交状态更新
+        else:
+            message = agent_response_data.get('message', "Command execution failed") + ". " + agent_response_data.get('error', "")
+            # 可以考虑根据命令类型和错误信息更新节点状态，例如命令是 stop 且执行失败，可能需要将节点状态标记为 error
+        return jsonify({'message': message, 'status': node.status, 'agent_response': agent_response_data}), 200
+
+    except requests.exceptions.RequestException as e:
+        return jsonify({'message': f"Failed to send command to node: {str(e)}", 'status': node.status}), 500
+
+@node_bp.route('/node/update_form/<int:node_id>', methods=['GET']) #  新增 GET 路由
+def update_form(node_id):
+    node = Node.query.get_or_404(node_id)
+    return render_template('update_node_form.html', node=node)  # 渲染修改节点信息的表单
+
+@node_bp.route('/node/update/<int:node_id>', methods=['POST'])
+def update_node(node_id):
+    node = Node.query.get_or_404(node_id)
+
+    # 1. 身份验证
+    secret_key = request.form.get('secret_key_header')  # 从表单数据中获取 X-Secret-Key
+    if not secret_key or secret_key != node.secret_key:  # 使用节点的 secret_key
+        return jsonify({'message': 'Unauthorized'}), 401
+
+    # 2. 获取请求数据
+    data = request.form  # 使用 request.form  代替  request.get_json()
+    if not data:
+        return jsonify({'message': 'Bad Request: No data provided'}), 400
+
+    # 3. 数据验证和更新
+    # 允许更新的字段
+    allowed_fields = ['role', 'protocols', 'secret_key', 'status'] # 允许更新状态
+    for key, value in data.items():
+        if key in allowed_fields:
+            if key == 'secret_key':
+                # 密钥更新，应该有更安全的处理方式
+                node.secret_key = value
+            elif key == 'status': # 状态更新
+                # 状态更新需要校验
+                if value not in ['online', 'offline', 'suspended', 'deleted']:
+                    return jsonify({'message': 'Bad Request: Invalid status'}), 400
+                node.status = value
+            else:
+                setattr(node, key, value)  # 使用 setattr 动态设置属性
+
+    # 4. 记录修改时间
+    node.last_modified = datetime.datetime.utcnow()
+
+    # 5. 提交数据库更改
+    db.session.commit()
+
+    return jsonify({
+        'message': 'Node updated successfully',
+        'node_id': node.id,
+        'redirect_url': url_for('node.dashboard')  # 添加 redirect_url
+    }), 200
+
+def register_node_blueprint(app):
+    app.register_blueprint(node_bp)

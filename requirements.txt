@@ -1,0 +1,7 @@
+Flask~=3.1.0
+requests
+flask_sqlalchemy
+flask_login
+mysql-connector-python
+bcrypt
+gunicorn  # 可选，用于生产环境
