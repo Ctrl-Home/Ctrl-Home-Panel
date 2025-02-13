@@ -6,50 +6,56 @@
     <title>{% block title %}JustRelay{% endblock %}</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
     <style>
-        body { padding-top: 20px; }
-        .container { margin-bottom: 20px; }
+        body {
+            padding-top: 60px; /* 给body一个padding-top，避免内容被导航栏遮挡 */
+        }
+
+        .container {
+            margin-bottom: 20px; /* 给container一个margin-bottom，增加页面底部间距 */
+        }
     </style>
     {% block head %}{% endblock %}
 </head>
 <body>
+
     <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
         <div class="container">
             <a class="navbar-brand" href="/">JustRelay</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav"
+                    aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
                 <span class="navbar-toggler-icon"></span>
             </button>
+
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav me-auto">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/">主界面</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/relay/add">添加转发</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/node/dashboard">节点管理</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/dual_management">双端管理</a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/">主界面</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/relay/add">添加转发</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/node/dashboard">节点管理</a>
+                        </li>
                     {% endif %}
                 </ul>
+
                 <ul class="navbar-nav">
                     {% if current_user.is_authenticated %}
-                    <li class="nav-item">
-                        <span class="navbar-text">欢迎, {{ current_user.username }}</span>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/logout">登出</a>
-                    </li>
+                        <li class="nav-item">
+                            <span class="navbar-text">欢迎, {{ current_user.username }}</span>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/logout">登出</a>
+                        </li>
                     {% else %}
-                    <li class="nav-item">
-                        <a class="nav-link" href="/register">注册</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/login">登录</a>
-                    </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/register">注册</a>
+                        </li>
+                        <li class="nav-item">
+                            <a class="nav-link" href="/login">登录</a>
+                        </li>
                     {% endif %}
                 </ul>
             </div>

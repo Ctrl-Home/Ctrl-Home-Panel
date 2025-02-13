@@ -3,6 +3,8 @@ from flask import Blueprint, request, jsonify, render_template, abort, redirect,
 from models import db, Node, Rule
 import datetime, secrets
 
+from routes.utils.send_command import send_command
+
 node_bp = Blueprint('node', __name__)
 
 @node_bp.route('/node/dashboard')
@@ -59,9 +61,11 @@ def config(node_id):
 
     # 获取适用于该节点的规则
     if node.role == "ingress" or node.role == "both":
-        rules = Rule.query.filter_by(server_id=None).all()  # 获取所有入口规则
+        # rules = Rule.query.filter_by(server_id=None).all()  # 获取所有入口规则 # Old line with server_id
+        rules = Rule.query.filter(Rule.node_id == None).all() # Get ingress rules, using node_id
     elif node.role == "egress" or node.role == "both":
-        rules = Rule.query.filter(Rule.server_id != None).all()  # 获取所有出口规则
+        # rules = Rule.query.filter(Rule.server_id != None).all()  # 获取所有出口规则 # Old line with server_id
+        rules = Rule.query.filter(Rule.node_id != None).all() # Get egress rules, using node_id
     else:
         return jsonify({'message': "Bad Request: node role error"}), 400
 
@@ -85,7 +89,8 @@ def config(node_id):
                 'source': rule.source,
                 'destination': rule.destination,
                 'protocol': rule.protocol,
-                'server_id': rule.server_id,
+                # 'server_id': rule.server_id, # Old line with server_id
+                'node_id': rule.node_id, # Use node_id instead of server_id
             }
             for rule in rules
         ]
@@ -119,6 +124,8 @@ def heartbeat(node_id):
     db.session.commit()
     return jsonify({'message': 'Heartbeat received'})
 
+
+
 @node_bp.route('/node/command/<int:node_id>', methods=['POST'])
 def send_command(node_id):
     node = Node.query.get_or_404(node_id)
@@ -132,35 +139,25 @@ def send_command(node_id):
 
     command = data['command']
 
-    # 构建被控端命令执行 URL
-    agent_command_url = f"http://{node.ip_address}:{node.port}/agent/command"
-    headers = {'X-Secret-Key': node.secret_key, 'Content-Type': 'application/json'}
-    command_payload = {'command': command}
+    agent_response_data = send_command(node, command)
 
-    try:
-        response = requests.post(agent_command_url, headers=headers, json=command_payload, timeout=10)
-        response.raise_for_status()
+    if agent_response_data and agent_response_data.get('success'):
+        message = agent_response_data.get('message', "Command executed successfully")
+        # 根据被控端命令结果，更新节点状态
+        if command == 'start' or command == 'restart':
+            node.status = 'online'
+        elif command == 'stop':
+            node.status = 'offline'
+        elif command == 'suspend':
+            node.status = 'suspended'
+        elif command == 'delete':
+            node.status = 'deleted'
+        db.session.commit()  # 提交状态更新
+    else:
+        message = agent_response_data.get('message', "Command execution failed") + ". " + agent_response_data.get('error', "")
+        # 可以考虑根据命令类型和错误信息更新节点状态，例如命令是 stop 且执行失败，可能需要将节点状态标记为 error
 
-        agent_response_data = response.json()
-        if agent_response_data.get('success'):
-            message = agent_response_data.get('message', "Command executed successfully")
-            # 根据被控端命令结果，更新节点状态
-            if command == 'start' or command == 'restart':
-                node.status = 'online'
-            elif command == 'stop':
-                node.status = 'offline'
-            elif command == 'suspend':
-                node.status = 'suspended'
-            elif command == 'delete':
-                node.status = 'deleted'
-            db.session.commit()  # 提交状态更新
-        else:
-            message = agent_response_data.get('message', "Command execution failed") + ". " + agent_response_data.get('error', "")
-            # 可以考虑根据命令类型和错误信息更新节点状态，例如命令是 stop 且执行失败，可能需要将节点状态标记为 error
-        return jsonify({'message': message, 'status': node.status, 'agent_response': agent_response_data}), 200
-
-    except requests.exceptions.RequestException as e:
-        return jsonify({'message': f"Failed to send command to node: {str(e)}", 'status': node.status}), 500
+    return jsonify({'message': message, 'status': node.status, 'agent_response': agent_response_data}), 200
 
 @node_bp.route('/node/update_form/<int:node_id>', methods=['GET']) #  新增 GET 路由
 def update_form(node_id):

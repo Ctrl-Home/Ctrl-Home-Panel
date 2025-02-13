@@ -1,9 +1,9 @@
 {% extends "base.html" %}
 
-{% block title %}添加转发规则{% endblock %}
+{% block title %}编辑转发规则{% endblock %}
 
 {% block content %}
-<h2>添加转发规则</h2>
+<h2>编辑转发规则</h2>
 {% with messages = get_flashed_messages(with_categories=true) %}
     {% if messages %}
         {% for category, message in messages %}
@@ -17,22 +17,22 @@
 <form method="POST">
     <div class="mb-3">
         <label for="name" class="form-label">规则名称</label>
-        <input type="text" class="form-control" id="name" name="name" required>
+        <input type="text" class="form-control" id="name" name="name" value="{{ rule.name }}" required>
     </div>
     <div class="mb-3">
         <label for="source" class="form-label">源地址 (IP:端口)</label>
-        <input type="text" class="form-control" id="source" name="source" required>
+        <input type="text" class="form-control" id="source" name="source" value="{{ rule.source }}" required>
     </div>
     <div class="mb-3">
         <label for="destination" class="form-label">目标地址 (IP:端口)</label>
-        <input type="text" class="form-control" id="destination" name="destination" required>
+        <input type="text" class="form-control" id="destination" name="destination" value="{{ rule.destination }}" required>
     </div>
     <div class="mb-3">
         <label for="protocol" class="form-label">协议</label>
         <select class="form-select" id="protocol" name="protocol" required>
-            <option value="" disabled selected>选择协议</option>
+            <option value="" disabled>选择协议</option>
             {% for key, value in protocols.items() %}
-                <option value="{{ key }}">{{ key }}</option>
+                <option value="{{ key }}" {% if key == rule.protocol %}selected{% endif %}>{{ key }}</option>
             {% endfor %}
         </select>
     </div>
@@ -43,7 +43,7 @@
             <select class="form-select" id="entry_node_id" name="entry_node_id" required>
                 <option value="" disabled selected>选择入口节点</option>
                 {% for node in entry_nodes %}
-                    <option value="{{ node.id }}">{{ node.ip_address }}:{{ node.port }} ({{ node.role }})</option>
+                    <option value="{{ node.id }}" {% if rule.entry_node_id == node.id %}selected{% endif %}>{{ node.ip_address }}:{{ node.port }} ({{ node.role }})</option>
                 {% endfor %}
             </select>
         </div>
@@ -54,7 +54,7 @@
         <select class="form-select" id="exit_node_id" name="exit_node_id" required>
             <option value="" disabled selected>选择出口节点</option>
             {% for node in exit_nodes %}
-                <option value="{{ node.id }}">{{ node.ip_address }}:{{ node.port }} ({{ node.role }})</option>
+                <option value="{{ node.id }}" {% if rule.node_id == node.id %}selected{% endif %}>{{ node.ip_address }}:{{ node.port }} ({{ node.role }})</option>
             {% endfor %}
         </select>
     </div>
@@ -65,13 +65,13 @@
             <select class="form-select" id="user_id" name="user_id" required>
                 <option value="" disabled selected>选择用户</option>
                 {% for user in users %}
-                    <option value="{{ user.id }}">{{ user.username }}</option>
+                    <option value="{{ user.id }}" {% if rule.user_id == user.id %}selected{% endif %}>{{ user.username }}</option>
                 {% endfor %}
             </select>
         </div>
     {% endif %}
 
-    <button type="submit" class="btn btn-primary">添加规则</button>
+    <button type="submit" class="btn btn-primary">更新规则</button>
     <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
 </form>
 {% endblock %}
