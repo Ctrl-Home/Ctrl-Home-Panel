@@ -1,0 +1,9 @@
+# protocols.yaml
+protocols:
+  wt:
+    display_name: WebTransport (WT)
+  wss:
+    display_name: WebSocket Secure (WSS)
+  tcp:
+    display_name: TCP Relay
+  # ... 其他协议 ...

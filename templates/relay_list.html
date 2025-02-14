@@ -11,8 +11,8 @@
     <thead>
         <tr>
             <th>名称</th>
-            <th>来源</th>
-            <th>目标</th>
+            <th>入口</th>
+            <th>落地</th>
             <th>协议</th>
             <th>操作</th>
         </tr>
@@ -22,11 +22,13 @@
         <tr>
             <td>{{ rule.name }}</td>
             <td>{{ rule.source }}</td>
-            <td>{{ rule.destination }}</td>
+            <td>{{ rule.landing_destination }}</td>
             <td>{{ rule.protocol }}</td>
             <td>
                 <a href="/relay/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
-                <a href="/relay/delete/{{ rule.id }}" class="btn btn-sm btn-danger">删除</a>
+                <form method="post" action="/relay/delete/{{ rule.id }}" style="display:inline-block;">
+                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除规则 {{ rule.name }} 吗?')">删除</button>
+                </form>
             </td>
         </tr>
         {% else %}

@@ -1,9 +1,8 @@
-import requests
-from flask import Blueprint, request, jsonify, render_template, abort, redirect, url_for
+from flask import Blueprint, request, jsonify, render_template, url_for
 from models import db, Node, Rule
-import datetime, secrets
+import datetime
 
-from routes.utils.send_command import send_command
+from utils.agent.send_command import send_command
 
 node_bp = Blueprint('node', __name__)
 

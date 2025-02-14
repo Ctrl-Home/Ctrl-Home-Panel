@@ -3,7 +3,7 @@ from flask import Flask
 from flask_login import LoginManager
 
 from models import db, User
-from routes.api.register_all_api_routes import register_routes  # 导入总的路由注册函数
+from routes.register_all_api_routes import register_routes  # 导入总的路由注册函数
 
 
 def create_app():

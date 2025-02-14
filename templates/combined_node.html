@@ -163,7 +163,7 @@
                 // 3. 发送 PATCH 请求
                 $.ajax({
                     url: "{{ url_for('node.update_node', node_id=node.id) }}",
-                    type: "PATCH", // 使用 PATCH 方法
+                    type: "POST", // 使用 PATCH 方法
                     data: JSON.stringify(updateData),
                     contentType: "application/json",
                     headers: {
