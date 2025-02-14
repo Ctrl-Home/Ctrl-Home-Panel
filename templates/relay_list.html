@@ -25,6 +25,9 @@
             <td>{{ rule.landing_destination }}</td>
             <td>{{ rule.protocol }}</td>
             <td>
+                <form method="post" action="/relay/reload/{{ rule.id }}" style="display:inline-block;">
+                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('确定要重启规则 {{ rule.name }} 吗?')">重启</button>
+                </form>
                 <a href="/relay/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
                 <form method="post" action="/relay/delete/{{ rule.id }}" style="display:inline-block;">
                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除规则 {{ rule.name }} 吗?')">删除</button>

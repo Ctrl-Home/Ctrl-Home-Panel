@@ -14,7 +14,7 @@ logger = logging.getLogger(__name__)
 
 
 def gost_manage(operation_type, protocol_name, source, destination, landing_destination, entry_node, exit_node,
-                current_user):
+                current_user, old_uuids=None):  # Add old_uuids parameter
     logger.debug(
         f"gost_manage: Starting. Operation: {operation_type}, Protocol: {protocol_name}, Entry: {entry_node.ip_address}, Exit: {exit_node.ip_address}")
 
@@ -25,8 +25,8 @@ def gost_manage(operation_type, protocol_name, source, destination, landing_dest
     landing_ip = landing_destination.split(":")[0]
     landing_port = landing_destination.split(":")[1]
 
-    if operation_type == 'add':
-        # Generate new UUIDs for a new rule
+    if operation_type in ('add', 'reload'):
+        # Generate new UUIDs for a new rule or reloading (treating reload like a new add)
         chain_uuid_val = str(uuid.uuid4())
         hop_uuid_val = str(uuid.uuid4())
         node_uuid_val = str(uuid.uuid4())
@@ -34,7 +34,7 @@ def gost_manage(operation_type, protocol_name, source, destination, landing_dest
         exit_service_uuid_val = str(uuid.uuid4())  # Separate UUID for exit service
         target_uuid_val = str(uuid.uuid4())
 
-        # For add operation, return the UUIDs
+        # For add/reload operation, return the UUIDs
         rule_data = {
             'chain_uuid': chain_uuid_val,
             'hop_uuid': hop_uuid_val,
@@ -130,6 +130,7 @@ def gost_manage(operation_type, protocol_name, source, destination, landing_dest
             ]
         }
     }
+
     def send_config_request(operation_type, url, payload):
         headers = {'Content-Type': 'application/json'}
         try:
@@ -140,8 +141,11 @@ def gost_manage(operation_type, protocol_name, source, destination, landing_dest
                 logger.debug(f"Sending PUT request to: {url}, payload: {payload}")
                 response = requests.put(url, headers=headers, data=json.dumps(payload))
             elif operation_type == 'delete':
-                logger.debug(f"Sending DELETE request to: {url}, payload: {payload}")
-                response = requests.delete(url, headers=headers, data=json.dumps(payload))
+                logger.debug(f"Sending DELETE request to: {url}")
+                response = requests.delete(url, headers=headers)  # No payload for delete
+            elif operation_type == 'reload':
+                logger.debug(f"Sending POST request (reload) to: {url}, payload: {payload}")
+                response = requests.post(url, headers=headers, data=json.dumps(payload))  # Use POST for reload
             else:
                 logger.error(f"Unknown operation_type: {operation_type}")
                 return False, f"Unknown operation_type: {operation_type}"
@@ -153,26 +157,37 @@ def gost_manage(operation_type, protocol_name, source, destination, landing_dest
             logger.error(f"Request failed: {url}, Error: {e}")
             return False, f"Request failed: {e}"
 
-    # Clear old config (Not needed with PUT)
-    if operation_type == 'edit':
-        pass  # Remove delete action
+    # Clear old config (DELETE for reload), *always* attempt deletion
+    if operation_type == 'reload' and old_uuids:
+        delete_entry_service_url = f"{entry_base_url}/config/services/{old_uuids['entry_service_uuid']}"
+        delete_entry_chain_url = f"{entry_base_url}/config/chains/{old_uuids['chain_uuid']}"
+        delete_exit_service_url = f"{exit_base_url}/config/services/{old_uuids['exit_service_uuid']}"
 
-    # Send requests, checking for success
-    success_entry_service, message_entry_service = send_config_request(operation_type, entry_service_url,
-                                                                       entry_service_payload)
+        send_config_request('delete', delete_entry_service_url, None) # Don't check for errors
+        send_config_request('delete', delete_entry_chain_url, None)
+        send_config_request('delete', delete_exit_service_url, None)
+
+
+    # Send requests, checking for success (for add, edit, and reload)
+    success_entry_service, message_entry_service = send_config_request(
+        operation_type if operation_type != 'reload' else 'add', entry_service_url,
+        entry_service_payload)
     if not success_entry_service:
         return False, f"Configuring entry service failed: {message_entry_service}", None
 
-    success_entry_chain, message_entry_chain = send_config_request(operation_type, entry_chain_url, entry_chain_payload)
+    success_entry_chain, message_entry_chain = send_config_request(
+        operation_type if operation_type != 'reload' else 'add', entry_chain_url, entry_chain_payload)
     if not success_entry_chain:
         return False, f"Configuring entry chain failed: {message_entry_chain}", None
 
-    success_exit_service, message_exit_service = send_config_request(operation_type, exit_service_url,
-                                                                     exit_service_payload)
+    success_exit_service, message_exit_service = send_config_request(
+        operation_type if operation_type != 'reload' else 'add', exit_service_url,
+        exit_service_payload)
     if not success_exit_service:
         return False, f"Configuring exit service failed: {message_exit_service}", None
 
     return True, f"Gost forwarding rule processed successfully (Operation: {operation_type})", rule_data
+
 
 def agent_control(operation_type, protocol, source, destination, landing_destination, entry_node, exit_node,
                   current_user):
@@ -180,8 +195,19 @@ def agent_control(operation_type, protocol, source, destination, landing_destina
         f"agent_control: Starting. Operation: {operation_type}, Protocol: {protocol}, Source: {source}, Destination: {destination}, Landing: {landing_destination}")
 
     if protocol == 'wss' or protocol == 'wt':  # Simple string comparison
+      # Get old UUIDs *before* calling gost_manage
+        old_uuids = None
+        if operation_type == 'reload':
+          rule = Rule.query.filter_by(source=source, user_id=current_user.id).first()
+          if rule:
+            old_uuids = {
+              'chain_uuid': rule.chain_uuid,
+              'entry_service_uuid': rule.entry_service_uuid,
+              'exit_service_uuid': rule.exit_service_uuid
+            }
         return gost_manage(operation_type, protocol, source, destination, landing_destination, entry_node, exit_node,
-                           current_user)
+                           current_user, old_uuids) # Pass old_uuids
+
     else:
         logger.warning(f"Unsupported protocol: {protocol}")  # Log a warning
         return False, f"Unsupported protocol: {protocol}", None  # Return False for unsupported protocols
