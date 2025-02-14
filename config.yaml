@@ -1,6 +1,6 @@
 database:
-  uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"  # 你的数据库连接字符串
-
+  #uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"  # 你的数据库连接字符串
+ uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"
 admin_user:
   username: "admin"
   password: "00..Zdw999"
