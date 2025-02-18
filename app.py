@@ -40,8 +40,8 @@ def create_app():
         # 创建初始管理员用户
         admin_config = config['admin_user']  # 从配置文件读取管理员信息
         if User.query.filter_by(username=admin_config['username']).first() is None:
-            admin_user = User(username=admin_config['username'], password=admin_config['00..Zdw999'],
-                            role=admin_config['role'])
+            admin_user = User(username=admin_config['admin'], password=admin_config['admin'],
+                            role=admin_config['admin'])
             db.session.add(admin_user)
             db.session.commit()
             print("创建了初始管理员用户: {}".format(admin_config['username']))
@@ -51,4 +51,4 @@ def create_app():
 
 if __name__ == '__main__':
     app = create_app()
-    app.run(host='192.168.0.110', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=15000, debug=True)

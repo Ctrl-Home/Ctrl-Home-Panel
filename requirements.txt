@@ -4,4 +4,5 @@ flask_sqlalchemy
 flask_login
 mysql-connector-python
 bcrypt
+pyaml
 gunicorn  # 可选，用于生产环境
