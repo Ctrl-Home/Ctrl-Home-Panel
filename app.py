@@ -1,3 +1,4 @@
+import bcrypt
 import yaml
 from flask import Flask
 from flask_login import LoginManager
@@ -10,8 +11,12 @@ def create_app():
     app = Flask(__name__)
 
     # 加载配置
-    with open('config.yaml', 'r', encoding='utf-8') as f:  # 指定 encoding='utf-8'
-        config = yaml.safe_load(f)
+    try:
+        with open('config.yaml', 'r', encoding='utf-8') as f:  # 指定 encoding='utf-8'
+            config = yaml.safe_load(f)
+    except FileNotFoundError:
+        print("错误: config.yaml 文件未找到。请确保文件存在且路径正确。")
+        return None # 或者 raise  异常来终止程序
 
     # 配置 Flask 应用
     app.config['SECRET_KEY'] = config['secret_key']  # 从配置文件加载
@@ -38,13 +43,21 @@ def create_app():
         db.create_all()
 
         # 创建初始管理员用户
-        admin_config = config['admin_user']  # 从配置文件读取管理员信息
-        if User.query.filter_by(username=admin_config['username']).first() is None:
-            admin_user = User(username=admin_config['admin'], password=admin_config['admin'],
-                            role=admin_config['admin'])
-            db.session.add(admin_user)
-            db.session.commit()
-            print("创建了初始管理员用户: {}".format(admin_config['username']))
+        admin_config = config.get('admin_user')  # 从配置文件读取管理员信息，使用get防止KeyError
+        if admin_config:
+            if User.query.filter_by(username=admin_config['username']).first() is None:
+                admin_user = User()
+                admin_user.username = admin_config['username']
+                admin_user.password = admin_config['password']
+                print(admin_user.password)
+                admin_user.role = admin_config.get('role', 'admin')  # 默认管理员角色
+                db.session.add(admin_user)
+                db.session.commit()
+                print(f"创建了初始管理员用户: {admin_config['username']}")
+            else:
+                print(f"管理员用户 {admin_config['username']} 已经存在。")
+        else:
+            print("警告：config.yaml 中未找到 'admin_user' 配置，跳过创建初始管理员用户。")
 
     return app
 

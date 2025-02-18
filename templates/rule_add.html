@@ -1,0 +1,44 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <h1>添加规则</h1>
+    <form method="post" action="{{ url_for('add_relay') }}">
+        <div class="mb-3">
+            <label for="name" class="form-label">规则名称</label>
+            <input type="text" class="form-control" id="name" name="name" value="{{ name }}" required>
+        </div>
+        <div class="mb-3">
+            <label for="exit_node_id" class="form-label">智能设备</label>
+            <select class="form-select" id="exit_node_id" name="exit_node_id" required>
+                <option value="">请选择智能设备</option>
+                {% for node in exit_nodes %}
+                    <option value="{{ node.id }}">ID: {{ node.id }}, Name: {{ node.name }}, IP: {{ node.ip_address }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="mb-3">
+            <label for="protocol" class="form-label">操作</label>
+            <select class="form-select" id="protocol" name="protocol" required>
+                <option value="">请选择想要的操作</option>
+                {% for protocol_name, protocol_config in protocols.items() %}
+                    <option value="{{ protocol_name }}" {% if protocol == protocol_name %}selected{% endif %}>{{ protocol_config.display_name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% if current_user.role == 'admin' %}
+        <div class="mb-3">
+            <label for="user_id" class="form-label">用户</label>
+            <select class="form-select" id="user_id" name="user_id" required>
+                <option value="">请选择用户</option>
+                {% for user in users %}
+                    <option value="{{ user.id }}">ID: {{ user.id }}, Username: {{ user.username }}</option>
+                {% endfor %}
+            </select>
+        </div>
+        {% endif %}
+
+        <button type="submit" class="btn btn-primary">添加规则</button>
+    </form>
+</div>
+{% endblock %}

@@ -2,22 +2,22 @@
 {% from 'utils/_macros.html' import node_info %}
 
 {% block title %}
-    {% if page_type == 'dashboard' %}节点控制面板 - JustRelay{% endif %}
-    {% if page_type == 'control' %}节点控制 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
-    {% if page_type == 'config' %}节点配置 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
+    {% if page_type == 'dashboard' %}智能设备控制面板 - JustRelay{% endif %}
+    {% if page_type == 'control' %}智能设备控制 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
+    {% if page_type == 'config' %}智能设备配置 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
 {% endblock %}
 
 {% block content %}
     <h2>
-        {% if page_type == 'dashboard' %}节点管理{% endif %}
-        {% if page_type == 'control' %}节点控制面板{% endif %}
-        {% if page_type == 'config' %}节点配置{% endif %}
+        {% if page_type == 'dashboard' %}智能设备管理{% endif %}
+        {% if page_type == 'control' %}智能设备控制面板{% endif %}
+        {% if page_type == 'config' %}智能设备配置{% endif %}
     </h2>
 
     {% if page_type == 'dashboard' %}
-        <p>在此页面您可以查看和管理您的节点。</p>
+        <p>在此页面您可以查看和管理您的智能设备。</p>
 
-        <h3>节点列表</h3>
+        <h3>智能设备列表</h3>
         <table class="table">
             <thead>
                 <tr>
@@ -46,7 +46,7 @@
                 </tr>
                 {% else %}
                 <tr>
-                    <td colspan="7">暂无节点。</td>
+                    <td colspan="7">暂无智能设备。</td>
                 </tr>
                 {% endfor %}
             </tbody>
@@ -62,12 +62,12 @@
             <button class="btn btn-warning" onclick="sendCommand('restart')">重启</button>
             <button class="btn btn-danger" onclick="sendCommand('stop')">停止</button>
             <button class="btn btn-sm btn-danger" onclick="sendCommand('delete')">删除</button>
-            <button class="btn btn-sm btn-secondary" onclick="showUpdateForm()">修改节点信息</button> <!-- 修改节点信息的按钮 -->
+            <button class="btn btn-sm btn-secondary" onclick="showUpdateForm()">修改智能设备信息</button> <!-- 修改智能设备信息的按钮 -->
         </div>
 
-        <!-- 修改节点信息的表单 (初始隐藏) -->
+        <!-- 修改智能设备信息的表单 (初始隐藏) -->
         <div id="updateForm" style="display: none;" class="mt-3">
-            <h3>修改节点信息</h3>
+            <h3>修改智能设备信息</h3>
             <form id="updateNodeForm">
                 <div class="form-group">
                     <label for="role">角色:</label>
@@ -118,10 +118,10 @@
                             alert("命令执行成功");
                         }
                         if (command === 'delete') {
-                            alert("节点已删除");
+                            alert("智能设备已删除");
                             window.location.href = "{{ url_for('node.dashboard') }}";
                         }
-                        // 可以根据 response.status 更新页面上的节点状态显示 (可选)
+                        // 可以根据 response.status 更新页面上的智能设备状态显示 (可选)
                     },
                     error: function(error) {
                         if (error.responseJSON && error.responseJSON.message) { // 检查 responseJSON 是否存在
@@ -172,7 +172,7 @@
                     success: function(response) {
                         alert(response.message);
                         hideUpdateForm(); // 隐藏表单
-                        //  刷新页面或者更新节点信息 (可选)
+                        //  刷新页面或者更新智能设备信息 (可选)
                         window.location.reload(); // 刷新页面以更新显示的信息
                     },
                     error: function(error) {
@@ -210,7 +210,7 @@
                         </tr>
                     {% else %}
                         <tr>
-                            <td colspan="4">该节点没有规则。</td>
+                            <td colspan="4">该智能设备没有规则。</td>
                         </tr>
                     {% endfor %}
                 </tbody>

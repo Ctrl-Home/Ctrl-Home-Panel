@@ -1,4 +1,4 @@
-# relay_routes.py
+# rule_routes.py
 import requests
 from flask import render_template, request, flash, redirect, url_for, abort
 from flask_login import login_required, current_user
@@ -30,8 +30,8 @@ def load_protocols(file_path="utils/gost/protocols.yaml"):
         return None
 
 
-def register_relay_routes(app):
-    @app.route('/relay/add', methods=['GET', 'POST'])
+def register_rule_routes(app):
+    @app.route('/rule/add', methods=['GET', 'POST'])
     @login_required
     def add_relay():
         entry_nodes = Node.query.filter(or_(Node.role.like('%ingress%'), Node.role == 'both')).all()
@@ -49,7 +49,7 @@ def register_relay_routes(app):
 
             if not all([name, source, destination, landing_destination, protocol]):
                 flash('All fields are required.', 'danger')
-                return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
+                return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
                                        current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
@@ -58,7 +58,7 @@ def register_relay_routes(app):
             if not ip_port_pattern.match(source) or not ip_port_pattern.match(destination) or not ip_port_pattern.match(
                     landing_destination):
                 flash('Invalid format for source, destination, or landing address. Use IP:Port format.', 'danger')
-                return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
+                return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
                                        current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
@@ -71,7 +71,7 @@ def register_relay_routes(app):
 
                     if not all([exit_node_id, user_id, entry_node_id]):
                         flash('Admin: Entry node, exit node, and user are required.', 'danger')
-                        return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                        return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                                users=users, current_user=current_user, protocols=protocols,
                                                source=source, destination=destination,
                                                landing_destination=landing_destination, name=name, protocol=protocol)
@@ -84,7 +84,7 @@ def register_relay_routes(app):
                     exit_node_id = request.form.get('exit_node_id')
                     if not exit_node_id:
                         flash('Exit node is required.', 'danger')
-                        return render_template('relay_add.html', exit_nodes=exit_nodes, current_user=current_user,
+                        return render_template('rule_add.html', exit_nodes=exit_nodes, current_user=current_user,
                                                protocols=protocols,
                                                source=source, destination=destination,
                                                landing_destination=landing_destination, name=name, protocol=protocol)
@@ -95,7 +95,7 @@ def register_relay_routes(app):
                     entry_node = Node.query.filter(or_(Node.role.like('%ingress%'), Node.role == 'both')).first()
                     if not entry_node:
                         flash('No ingress node configured. Contact an administrator.', 'danger')
-                        return render_template('relay_add.html', exit_nodes=exit_nodes, current_user=current_user,
+                        return render_template('rule_add.html', exit_nodes=exit_nodes, current_user=current_user,
                                                protocols=protocols,
                                                source=source, destination=destination,
                                                landing_destination=landing_destination, name=name, protocol=protocol)
@@ -136,7 +136,7 @@ def register_relay_routes(app):
                     return redirect(url_for('index'))
                 else:
                     flash(f'Failed to create relay rule: {message}', 'danger')
-                    return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                    return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                            users=users, current_user=current_user, protocols=protocols,
                                            source=source, destination=destination,
                                            landing_destination=landing_destination, name=name, protocol=protocol)
@@ -145,15 +145,15 @@ def register_relay_routes(app):
                 db.session.rollback()
                 logger.exception(f"Error adding relay rule: {e}")  # Log full traceback
                 flash(f'An error occurred: {e}', 'danger')
-                return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
+                return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
                                        current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
 
-        return render_template('relay_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
+        return render_template('rule_add.html', entry_nodes=entry_nodes, exit_nodes=exit_nodes, users=users,
                                current_user=current_user, protocols=protocols)
 
-    @app.route('/relay/edit/<int:rule_id>', methods=['GET', 'POST'])
+    @app.route('/rule/edit/<int:rule_id>', methods=['GET', 'POST'])
     @login_required
     def edit_relay(rule_id):
         rule = Rule.query.get_or_404(rule_id)
@@ -176,7 +176,7 @@ def register_relay_routes(app):
 
             if not all([name, source, destination, landing_destination, protocol]):
                 flash('All fields are required.', 'danger')
-                return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                        users=users, current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
@@ -185,7 +185,7 @@ def register_relay_routes(app):
             if not ip_port_pattern.match(source) or not ip_port_pattern.match(destination) or not ip_port_pattern.match(
                     landing_destination):
                 flash('Invalid format for source, destination, or landing address. Use IP:Port format.', 'danger')
-                return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                        users=users, current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
@@ -204,7 +204,7 @@ def register_relay_routes(app):
 
                     if not all([exit_node_id, user_id, entry_node_id]):
                         flash('Admin: Entry node, exit node, and user are required.', 'danger')
-                        return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes,
+                        return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes,
                                                exit_nodes=exit_nodes, users=users, current_user=current_user,
                                                protocols=protocols,
                                                source=source, destination=destination,
@@ -220,7 +220,7 @@ def register_relay_routes(app):
                     exit_node_id = request.form.get('exit_node_id')
                     if not exit_node_id:
                         flash('Exit node is required.', 'danger')
-                        return render_template('relay_edit.html', rule=rule, exit_nodes=exit_nodes,
+                        return render_template('rule_edit.html', rule=rule, exit_nodes=exit_nodes,
                                                current_user=current_user, protocols=protocols,
                                                source=source, destination=destination,
                                                landing_destination=landing_destination, name=name, protocol=protocol)
@@ -230,7 +230,7 @@ def register_relay_routes(app):
                     entry_node = Node.query.filter(or_(Node.role.like('%ingress%'), Node.role == 'both')).first()
                     if not entry_node:
                         flash('No ingress node configured. Contact an administrator.', 'danger')
-                        return render_template('relay_edit.html', rule=rule, exit_nodes=exit_nodes,
+                        return render_template('rule_edit.html', rule=rule, exit_nodes=exit_nodes,
                                                current_user=current_user, protocols=protocols,
                                                source=source, destination=destination,
                                                landing_destination=landing_destination, name=name, protocol=protocol)
@@ -253,7 +253,7 @@ def register_relay_routes(app):
                     return redirect(url_for('index'))
                 else:
                     flash(f'Failed to update relay rule: {message}', 'danger')
-                    return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                    return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                            users=users, current_user=current_user, protocols=protocols,
                                            source=source, destination=destination,
                                            landing_destination=landing_destination, name=name, protocol=protocol)
@@ -262,15 +262,15 @@ def register_relay_routes(app):
                 db.session.rollback()
                 logger.exception(f"Error editing relay rule: {e}")  # Log full traceback
                 flash(f'An error occurred: {e}', 'danger')
-                return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+                return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                        users=users, current_user=current_user, protocols=protocols,
                                        source=source, destination=destination, landing_destination=landing_destination,
                                        name=name, protocol=protocol)
 
-        return render_template('relay_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
+        return render_template('rule_edit.html', rule=rule, entry_nodes=entry_nodes, exit_nodes=exit_nodes,
                                users=users, current_user=current_user, protocols=protocols)
 
-    @app.route('/relay/reload/<int:rule_id>', methods=['POST'])
+    @app.route('/rule/reload/<int:rule_id>', methods=['POST'])
     @login_required
     def reload_relay(rule_id):
         rule = Rule.query.get_or_404(rule_id)
@@ -306,7 +306,7 @@ def register_relay_routes(app):
             flash(f'Failed to reload relay rule: {message}', 'danger')
         return redirect(url_for('index'))
 
-    @app.route('/relay/delete/<int:rule_id>', methods=['POST'])
+    @app.route('/rule/delete/<int:rule_id>', methods=['POST'])
     @login_required
     def delete_relay(rule_id):
         rule = Rule.query.get_or_404(rule_id)

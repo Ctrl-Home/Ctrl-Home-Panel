@@ -10,37 +10,34 @@
 <table class="table">
     <thead>
         <tr>
-            <th>名称</th>
-            <th>入口</th>
-            <th>落地</th>
-            <th>协议</th>
-            <th>操作</th>
+            <th>规则名</th>
+            <th>设备名</th>
+            <th>状态</th>
         </tr>
     </thead>
     <tbody>
         {% for rule in relay_rules %}
         <tr>
             <td>{{ rule.name }}</td>
-            <td>{{ rule.source }}</td>
-            <td>{{ rule.landing_destination }}</td>
-            <td>{{ rule.protocol }}</td>
+            <td>{{ node.name }}</td>
+            <td>{{ node.status }}</td>
             <td>
-                <form method="post" action="/relay/reload/{{ rule.id }}" style="display:inline-block;">
+                <form method="post" action="/rule/reload/{{ rule.id }}" style="display:inline-block;">
                     <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('确定要重启规则 {{ rule.name }} 吗?')">重启</button>
                 </form>
                 <a href="/relay/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
-                <form method="post" action="/relay/delete/{{ rule.id }}" style="display:inline-block;">
+                <form method="post" action="/rule/delete/{{ rule.id }}" style="display:inline-block;">
                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除规则 {{ rule.name }} 吗?')">删除</button>
                 </form>
             </td>
         </tr>
         {% else %}
         <tr>
-            <td colspan="5">暂无转发规则，<a href="/relay/add">点击添加</a>。</td>
+            <td colspan="5">暂无转发规则，<a href="/rule/add">点击添加</a>。</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
-<a href="/relay/add" class="btn btn-success">添加新的转发规则</a>
+<a href="/rule/add" class="btn btn-success">添加新的转发规则</a>
 {% endblock %}
