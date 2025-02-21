@@ -1,6 +1,6 @@
 import bcrypt
 import yaml
-from flask import Flask
+from flask import Flask, current_app
 from flask_login import LoginManager
 
 from models import db, User
@@ -22,6 +22,11 @@ def create_app():
     app.config['SECRET_KEY'] = config['secret_key']  # 从配置文件加载
     app.config['SQLALCHEMY_DATABASE_URI'] = config['database']['uri']  # 从配置文件加载
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+    # 使用 with 语句手动激活应用上下文
+    with app.app_context():
+        current_app.config['SECRET_KEY'] = config['secret_key']  # 现在可以在应用上下文中访问配置
+        print(f"Secret key: {current_app.config['SECRET_KEY']}")  # 验证
 
     # 初始化数据库
     db.init_app(app)

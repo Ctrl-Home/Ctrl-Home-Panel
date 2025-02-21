@@ -1,222 +1,174 @@
-{% extends 'base.html' %}
-{% from 'utils/_macros.html' import node_info %}
+{% extends "base.html" %}
 
 {% block title %}
-    {% if page_type == 'dashboard' %}智能设备控制面板 - JustRelay{% endif %}
-    {% if page_type == 'control' %}智能设备控制 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
-    {% if page_type == 'config' %}智能设备配置 - {{ node.ip_address }}:{{ node.port }} - JustRelay{% endif %}
+    {% if page_type == 'dashboard' %}
+        节点仪表盘
+    {% elif node %}
+        {% if page_type == 'control' %}
+            控制节点 - {{ node.name }}
+        {% elif page_type == 'config' %}
+            节点配置 - {{ node.name }}
+        {% endif %}
+    {% endif %}
 {% endblock %}
 
 {% block content %}
-    <h2>
-        {% if page_type == 'dashboard' %}智能设备管理{% endif %}
-        {% if page_type == 'control' %}智能设备控制面板{% endif %}
-        {% if page_type == 'config' %}智能设备配置{% endif %}
-    </h2>
+    <div class="container">
+        <h1>
+            {% if page_type == 'dashboard' %}
+                节点仪表盘
+            {% elif node %}
+                {% if page_type == 'control' %}
+                    控制节点 - {{ node.name }}
+                {% elif page_type == 'config' %}
+                    节点配置 - {{ node.name }}
+                {% endif %}
+            {% endif %}
+        </h1>
 
-    {% if page_type == 'dashboard' %}
-        <p>在此页面您可以查看和管理您的智能设备。</p>
-
-        <h3>智能设备列表</h3>
-        <table class="table">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    <th>IP 地址</th>
-                    <th>端口</th>
-                    <th>角色</th>
-                    <th>状态</th>
-                    <th>上次心跳</th>
-                    <th>操作</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for node in nodes %}
-                <tr>
-                    <td>{{ node.id }}</td>
-                    <td>{{ node.ip_address }}</td>
-                    <td>{{ node.port }}</td>
-                    <td>{{ node.role }}</td>
-                    <td>{{ node.status }}</td>
-                    <td>{{ node.last_heartbeat }}</td>
-                    <td>
-                        <a href="{{ url_for('node.control_panel', node_id=node.id) }}" class="btn btn-sm btn-primary">控制</a>
-                        <a href="{{ url_for('node.update_form', node_id=node.id) }}" class="btn btn-sm btn-secondary">修改</a>
-                    </td>
-                </tr>
-                {% else %}
-                <tr>
-                    <td colspan="7">暂无智能设备。</td>
-                </tr>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            {% endif %}
+        {% endwith %}
 
-    {% elif page_type == 'control' %}
-        <h3>{{ node.ip_address }}:{{ node.port }}</h3>
-        {{ node_info(node) }}
+        {% if page_type == 'dashboard' %}
+            <a href="{{ url_for('node.add_node_form') }}" class="btn btn-success mb-3">手动添加节点</a>  {# 添加链接 #}
 
-        <div class="mt-3">
-            <h3>控制操作</h3>
-            <button class="btn btn-success" onclick="sendCommand('start')">启动</button>
-            <button class="btn btn-warning" onclick="sendCommand('restart')">重启</button>
-            <button class="btn btn-danger" onclick="sendCommand('stop')">停止</button>
-            <button class="btn btn-sm btn-danger" onclick="sendCommand('delete')">删除</button>
-            <button class="btn btn-sm btn-secondary" onclick="showUpdateForm()">修改智能设备信息</button> <!-- 修改智能设备信息的按钮 -->
-        </div>
-
-        <!-- 修改智能设备信息的表单 (初始隐藏) -->
-        <div id="updateForm" style="display: none;" class="mt-3">
-            <h3>修改智能设备信息</h3>
-            <form id="updateNodeForm">
-                <div class="form-group">
-                    <label for="role">角色:</label>
-                    <select class="form-control" id="role" name="role">
-                        <option value="ingress" {% if node.role == 'ingress' %}selected{% endif %}>入口 (ingress)</option>
-                        <option value="egress" {% if node.role == 'egress' %}selected{% endif %}>出口 (egress)</option>
-                        <option value="both" {% if node.role == 'both' %}selected{% endif %}>两者 (both)</option>
-                    </select>
-                </div>
-                <div class="form-group">
-                    <label for="protocols">协议:</label>
-                    <input type="text" class="form-control" id="protocols" name="protocols" value="{{ node.protocols }}">
-                </div>
-                <div class="form-group">
-                    <label for="secret_key">密钥:</label>
-                    <input type="text" class="form-control" id="secret_key" name="secret_key" value="{{ node.secret_key }}">
-                </div>
-                <div class="form-group">
-                    <label for="status">状态:</label>
-                    <select class="form-control" id="status" name="status">
-                        <option value="online" {% if node.status == 'online' %}selected{% endif %}>在线</option>
-                        <option value="offline" {% if node.status == 'offline' %}selected{% endif %}>离线</option>
-                        <option value="suspended" {% if node.status == 'suspended' %}selected{% endif %}>暂停</option>
-                        <option value="deleted" {% if node.status == 'deleted' %}selected{% endif %}>删除</option>
-                    </select>
-                </div>
-                <button type="button" class="btn btn-primary" onclick="updateNode()">保存</button>
-                <button type="button" class="btn btn-secondary" onclick="hideUpdateForm()">取消</button>
-            </form>
-        </div>
-
-
-        <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-        <script>
-            function sendCommand(command) {
-                $.ajax({
-                    url: "{{ url_for('node.send_command', node_id=node.id) }}",
-                    type: "POST",
-                    data: JSON.stringify({ command: command }), //  确保 data 被序列化为 JSON 字符串
-                    contentType: 'application/json',          //  明确设置 Content-Type 为 application/json
-                    headers: {
-                        "X-Secret-Key": "{{ node.secret_key }}"
-                    },
-                    success: function(response) {
-                        if (response && response.message) {
-                            alert(response.message);
-                        } else {
-                            alert("命令执行成功");
-                        }
-                        if (command === 'delete') {
-                            alert("智能设备已删除");
-                            window.location.href = "{{ url_for('node.dashboard') }}";
-                        }
-                        // 可以根据 response.status 更新页面上的智能设备状态显示 (可选)
-                    },
-                    error: function(error) {
-                        if (error.responseJSON && error.responseJSON.message) { // 检查 responseJSON 是否存在
-                            alert("Error sending command: " + error.responseJSON.message);
-                        } else if (error.responseText) { // 如果 responseJSON 不存在，尝试使用 responseText
-                            alert("Error sending command: " + error.responseText); // 显示原始文本错误信息
-                        } else {
-                            alert("An unknown error occurred."); //  最后的兜底错误提示
-                        }
-                    }
-                });
-            }
-
-            function showUpdateForm() {
-                $("#updateForm").show();
-            }
-
-            function hideUpdateForm() {
-                $("#updateForm").hide();
-            }
-
-
-            function updateNode() {
-                // 1. 获取表单数据
-                var role = $("#role").val();
-                var protocols = $("#protocols").val();
-                var secret_key = $("#secret_key").val();
-                var status = $("#status").val();
-
-                // 2. 构建 PATCH 请求的 JSON 数据
-                var updateData = {
-                    role: role,
-                    protocols: protocols,
-                    secret_key: secret_key,
-                    status: status,
-                };
-
-
-                // 3. 发送 PATCH 请求
-                $.ajax({
-                    url: "{{ url_for('node.update_node', node_id=node.id) }}",
-                    type: "POST", // 使用 PATCH 方法
-                    data: JSON.stringify(updateData),
-                    contentType: "application/json",
-                    headers: {
-                        "X-Secret-Key": "{{ node.secret_key }}" // 传递 Secret Key
-                    },
-                    success: function(response) {
-                        alert(response.message);
-                        hideUpdateForm(); // 隐藏表单
-                        //  刷新页面或者更新智能设备信息 (可选)
-                        window.location.reload(); // 刷新页面以更新显示的信息
-                    },
-                    error: function(error) {
-                        if (error.responseJSON && error.responseJSON.message) {
-                            alert("Error updating node: " + error.responseJSON.message);
-                        } else {
-                            alert("An unknown error occurred while updating node.");
-                        }
-                    }
-                });
-            }
-        </script>
-    {% elif page_type == 'config' %}
-        <h3>{{ node.ip_address }}:{{ node.port }}</h3>
-        {{ node_info(node) }}
-
-        <div class="mt-3">
-            <h3>规则</h3>
             <table class="table">
                 <thead>
                     <tr>
+                        <th>ID</th>
                         <th>名称</th>
-                        <th>来源</th>
-                        <th>目标</th>
-                        <th>协议</th>
+                        <th>IP 地址</th>
+                        <th>端口</th>
+                        <th>角色</th>
+                        <th>状态</th>
+                        <th>最后心跳</th>
+                        <th>操作</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for rule in rules %}
+                    {% for node in nodes %}
                         <tr>
-                            <td>{{ rule.name }}</td>
-                            <td>{{ rule.source }}</td>
-                            <td>{{ rule.destination }}</td>
-                            <td>{{ rule.protocol }}</td>
-                        </tr>
-                    {% else %}
-                        <tr>
-                            <td colspan="4">该智能设备没有规则。</td>
+                            <td>{{ node.id }}</td>
+                            <td>{{ node.name }}</td>
+                            <td>{{ node.ip_address }}</td>
+                            <td>{{ node.port }}</td>
+                            <td>{{ node.role }}</td>
+                            <td>{{ node.status }}</td>
+                            <td>{{ node.last_heartbeat or '从未' }}</td>
+                            <td>
+                                <a href="{{ url_for('node.update_form', node_id=node.id) }}" class="btn btn-sm btn-warning">更新</a>
+                                <a href="{{ url_for('node.control_panel', node_id=node.id) }}" class="btn btn-sm btn-info">控制</a>
+                            </td>
                         </tr>
                     {% endfor %}
                 </tbody>
             </table>
-        </div>
+        {% elif node and page_type == 'control' %}
+            {# ... 节点控制面板内容 ... #}
+            <h2>控制面板 - {{ node.name }}</h2>
+            <!-- 添加控制面板内容，比如发送命令的表单 -->
+            <form id="commandForm">
+                <div class="mb-3">
+                    <label for="command" class="form-label">命令</label>
+                    <input type="text" class="form-control" id="command" name="command" required>
+                </div>
+                <button type="button" class="btn btn-primary" onclick="sendCommand()">发送命令</button>
+            </form>
 
-    {% endif %}
+            <script>
+            function sendCommand() {
+                const command = document.getElementById('command').value;
 
+                const data = {
+                    command: command,
+                };
+
+                fetch("{{ url_for('node.send_command_route', node_id=node.id) }}", {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        throw new Error(`HTTP error! status: ${response.status}`);
+                    }
+                    // Handle the response, e.g., show a success message or update the UI
+                    return response.json(); // Assuming your server returns JSON
+                })
+                .then(data => {
+                    console.log('Success:', data);
+                    // Optionally, display a success message
+                    alert("命令已发送!"); // Or use a more sophisticated UI update
+                    // You might want to clear the input field:
+                    document.getElementById('command').value = '';
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    // Handle errors, e.g., display an error message
+                    alert("发送命令失败: " + error.message); // Or use a more sophisticated error display
+                });
+            }
+            </script>
+
+            <hr>
+            <p>节点状态: {{ node.status }}</p>
+            {% if 'agent_response' in session %}
+                <div class="alert alert-info">
+                    <b>Agent 响应:</b> {{ session['agent_response']['message'] }}
+                    <pre>{{ session['agent_response'] }}</pre>
+                </div>
+                {% set _ = session.pop('agent_response') %}  {# 使用 set 和 _ 变量，避免使用 'do' #}
+            {% endif %}
+
+        {% elif node and page_type == 'config' %}
+            {# ... 节点配置页面内容 ... #}
+            <h2>节点配置 - {{ node.name }}</h2>
+            <p>IP 地址: {{ node.ip_address }}</p>
+            <p>端口: {{ node.port }}</p>
+            <p>角色: {{ node.role }}</p>
+            <p>协议: {{ node.protocols }}</p>
+            <p>状态: {{ node.status }}</p>
+            <p>最后心跳: {{ node.last_heartbeat }}</p>
+            <!-- 展示配置信息和规则 -->
+            {% if config_data and config_data['rules'] %}
+                <h3>规则</h3>
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>名称</th>
+                            <th>来源</th>
+                            <th>目标</th>
+                            <th>协议</th>
+                            <th>节点 ID</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for rule in config_data['rules'] %}
+                            <tr>
+                                <td>{{ rule.id }}</td>
+                                <td>{{ rule.name }}</td>
+                                <td>{{ rule.source }}</td>
+                                <td>{{ rule.destination }}</td>
+                                <td>{{ rule.protocol }}</td>
+                                <td>{{ rule.node_id }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p>没有找到规则。</p>
+            {% endif %}
+        {% endif %}
+    </div>
 {% endblock %}

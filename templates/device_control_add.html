@@ -1,0 +1,49 @@
+{% extends 'base.html' %}
+
+{% block title %}添加设备控制规则{% endblock %} {# 定义页面标题 block #}
+
+{% block content %} {# 内容 block 开始 #}
+    <div class="container">
+        <h1>添加设备控制规则</h1>
+
+
+        <form method="post">
+
+            {% if current_user.role == 'admin' %}
+                <div class="form-group">
+                    <label for="user_id">用户:</label>
+                    <select class="form-control" id="user_id" name="user_id" required>
+                        <option value="">-- 请选择用户 --</option>
+                        {% for user in users %}
+                            <option value="{{ user.id }}">{{ user.username }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+            {% endif %}
+
+            <div class="form-group">
+                <label for="device_id">设备:</label>
+                <select class="form-control" id="device_id" name="device_id" required>
+                    <option value="">-- 请选择设备 --</option>
+                    {% for device in devices %}
+                        <option value="{{ device.id }}">{{ device.name }} (ID: {{ device.id }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="form-group">
+                <label for="action">操作:</label>
+                <select class="form-control" id="action" name="action" required>
+                    <option value="">-- 请选择操作 --</option>
+                    {% for action in actions %}
+                        <option value="{{ action }}">{{ action }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+
+            <button type="submit" class="btn btn-primary">添加规则</button>
+            <a href="{{ url_for('index') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+{% endblock %} {# 内容 block 结束 #}

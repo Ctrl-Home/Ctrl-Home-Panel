@@ -3,7 +3,7 @@
 {% block title %}主界面 - JustRelay{% endblock %}
 
 {% block content %}
-<h2>欢迎来到 JustRelay</h2>
+<h2>欢迎来到 Ctrl+Home</h2>
 <p>这是您的主界面，您可以在这里查看您的转发规则和进行管理。</p>
 
 <h3>转发规则列表</h3>
@@ -22,22 +22,22 @@
             <td>{{ node.name }}</td>
             <td>{{ node.status }}</td>
             <td>
-                <form method="post" action="/rule/reload/{{ rule.id }}" style="display:inline-block;">
+                <form method="post" action="/device/control/reload/{{ rule.id }}" style="display:inline-block;">
                     <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('确定要重启规则 {{ rule.name }} 吗?')">重启</button>
                 </form>
-                <a href="/relay/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
-                <form method="post" action="/rule/delete/{{ rule.id }}" style="display:inline-block;">
+                <a href="/device/control/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
+                <form method="post" action="/device/control/delete/{{ rule.id }}" style="display:inline-block;">
                     <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除规则 {{ rule.name }} 吗?')">删除</button>
                 </form>
             </td>
         </tr>
         {% else %}
         <tr>
-            <td colspan="5">暂无转发规则，<a href="/rule/add">点击添加</a>。</td>
+            <td colspan="5">暂无转发规则，<a href="/device/control/add">点击添加</a>。</td>
         </tr>
         {% endfor %}
     </tbody>
 </table>
 
-<a href="/rule/add" class="btn btn-success">添加新的转发规则</a>
+<a href="/device/control/add" class="btn btn-success">添加新的转发规则</a>
 {% endblock %}

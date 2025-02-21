@@ -1,0 +1,52 @@
+{% extends "base.html" %}
+
+{% block title %}设备控制规则列表{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h1>设备控制规则列表</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <a href="{{ url_for('add_device_control') }}" class="btn btn-success mb-3">添加设备控制规则</a>  {# 修改链接 #}
+
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>设备</th>
+                    <th>操作</th>
+                    <th>参数</th>
+                    <th>用户</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for rule in rules %}  {# 假设你有一个名为 'rules' 的变量，包含了规则列表 #}
+                    <tr>
+                        <td>{{ rule.name }}</td>
+                        <td>{{ rule.device.name if rule.device else '未知设备' }}</td>
+                        <td>{{ rule.action }}</td>
+                        <td>{{ rule.parameters or '无' }}</td>
+                        <td>{{ rule.user.username if rule.user else '未知用户' }}</td>
+                        <td>
+                            <a href="{{ url_for('edit_device_control', rule_id=rule.id) }}" class="btn btn-sm btn-warning">编辑</a>  {# 修改链接 #}
+                            <form action="{{ url_for('delete_device_control', rule_id=rule.id) }}" method="POST" style="display: inline;">  {# 修改链接 #}
+                                <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除此规则吗?')">删除</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+{% endblock %}

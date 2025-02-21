@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, flash, redirect, url_for
+from flask import Flask, render_template, request, flash, redirect, url_for, session
 from flask_login import login_user, logout_user, current_user
 from models import db, User
 
@@ -35,6 +35,7 @@ def register_user_routes(app):
             user = User.query.filter_by(username=username).first()
             if user and user.verify_password(password):
                 login_user(user)
+                session['secret_key'] = app.config['SECRET_KEY']  # 将 secret_key 存储在 session 中
                 flash('登录成功!', 'success')
                 return redirect(url_for('index'))
             else:

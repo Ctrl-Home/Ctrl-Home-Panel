@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+
+{% block title %}手动添加节点{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <h1>手动添加节点</h1>
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <form method="POST" action="{{ url_for('node.register_node') }}">
+            <div class="mb-3">
+                <label for="name" class="form-label">节点名称 (可选)</label>
+                <input type="text" class="form-control" id="name" name="name" placeholder="留空则自动生成">
+            </div>
+            <div class="mb-3">
+                <label for="ip_address" class="form-label">IP 地址</label>
+                <input type="text" class="form-control" id="ip_address" name="ip_address" required>
+            </div>
+            <div class="mb-3">
+                <label for="port" class="form-label">端口</label>
+                <input type="number" class="form-control" id="port" name="port" required>
+            </div>
+            <div class="mb-3">
+                <label for="role" class="form-label">角色</label>
+                <select class="form-select" id="role" name="role" required>
+                    <option value="" disabled selected>请选择角色</option>
+                    <option value="ingress">ingress</option>
+                    <option value="egress">egress</option>
+                    <option value="both">both</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="protocols" class="form-label">协议</label>
+                <input type="text" class="form-control" id="protocols" name="protocols" placeholder="例如: mqtt, http" required>
+            </div>
+            <div class="mb-3">
+                <label for="secret_key" class="form-label">密钥 (可选)</label>
+                <input type="text" class="form-control" id="secret_key" name="secret_key" placeholder="留空则自动生成">
+            </div>
+            <button type="submit" class="btn btn-primary">添加节点</button>
+            <a href="{{ url_for('node.dashboard') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
+{% endblock %}

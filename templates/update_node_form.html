@@ -1,75 +1,55 @@
-{% extends 'base.html' %}
-{% block title %}修改节点信息 - {{ node.ip_address }}:{{ node.port }}{% endblock %}
+{% extends "base.html" %}
+
+{% block title %}更新节点{% endblock %}
 
 {% block content %}
-    <h2>修改节点信息 - {{ node.ip_address }}:{{ node.port }}</h2>
-    <form method="POST" action="{{ url_for('node.update_node', node_id=node.id) }}" id="updateNodeForm">  <!--  添加一个 id -->
-        <input type="hidden" name="secret_key_header" id="secretKeyHeader" value="{{ node.secret_key }}">  <!-- 隐藏的 input -->
+    <div class="container">
+        <h1>更新节点</h1>
 
-        <div class="form-group">
-            <label for="role">角色:</label>
-            <select class="form-control" id="role" name="role">
-                <option value="ingress" {% if node.role == 'ingress' %}selected{% endif %}>入口 (ingress)</option>
-                <option value="egress" {% if node.role == 'egress' %}selected{% endif %}>出口 (egress)</option>
-                <option value="both" {% if node.role == 'both' %}selected{% endif %}>两者 (both)</option>
-            </select>
-        </div>
-        <div class="form-group">
-            <label for="protocols">协议:</label>
-            <input type="text" class="form-control" id="protocols" name="protocols" value="{{ node.protocols }}">
-        </div>
-        <div class="form-group">
-            <label for="secret_key">密钥:</label>
-            <input type="text" class="form-control" id="secret_key" name="secret_key" value="{{ node.secret_key }}">
-        </div>
-        <div class="form-group">
-             <label for="status">状态:</label>
-             <select class="form-control" id="status" name="status">
-                 <option value="online" {% if node.status == 'online' %}selected{% endif %}>在线</option>
-                 <option value="offline" {% if node.status == 'offline' %}selected{% endif %}>离线</option>
-                 <option value="suspended" {% if node.status == 'suspended' %}selected{% endif %}>暂停</option>
-                 <option value="deleted" {% if node.status == 'deleted' %}selected{% endif %}>删除</option>
-             </select>
-         </div>
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
 
-        <button type="submit" class="btn btn-primary">保存</button>
-        <a href="{{ url_for('node.dashboard') }}" class="btn btn-secondary">取消</a>  <!--  取消后返回仪表盘 -->
-    </form>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script>
-        $(document).ready(function() {  //  确保在 DOM 加载完毕后执行
-            $("#updateNodeForm").submit(function(event) { // 监听表单的提交事件
-                event.preventDefault();  // 阻止默认的表单提交行为
-
-                // 1. 获取表单数据
-                var formData = $(this).serialize();  //  使用 serialize() 获取表单数据
-
-                // 2. 发送 POST 请求
-                $.ajax({
-                    url: $(this).attr('action'),  //  获取 form 的 action 属性 (URL)
-                    type: "POST",
-                    data: formData,
-                    dataType: 'json',  //  期望服务器返回 JSON
-                    success: function(response) {
-                        if (response.message) {
-                            alert(response.message);  //  显示成功消息
-                        }
-                        if (response.redirect_url) {
-                            window.location.href = response.redirect_url;  //  重定向
-                        } else {
-                            window.location.href = "{{ url_for('node.dashboard') }}"; //如果后台没有返回redirect_url就跳转到dashboard
-                        }
-                    },
-                    error: function(error) {
-                        if (error.responseJSON && error.responseJSON.message) {
-                            alert("Error updating node: " + error.responseJSON.message);
-                        } else {
-                            alert("An unknown error occurred while updating node.");
-                        }
-                    }
-                });
-            });
-        });
-
-    </script>
+        <form method="POST" action="{{ url_for('node.update_node', node_id=node.id) }}">
+            <div class="mb-3">
+                <label for="name" class="form-label">名称</label>
+                <input type="text" class="form-control" id="name" name="name" value="{{ node.name }}">
+            </div>
+            <div class="mb-3">
+                <label for="role" class="form-label">角色</label>
+                <select class="form-select" id="role" name="role">
+                    <option value="ingress" {% if node.role == 'ingress' %}selected{% endif %}>ingress</option>
+                    <option value="egress" {% if node.role == 'egress' %}selected{% endif %}>egress</option>
+                    <option value="both" {% if node.role == 'both' %}selected{% endif %}>both</option>
+                </select>
+            </div>
+            <div class="mb-3">
+                <label for="protocols" class="form-label">协议</label>
+                <input type="text" class="form-control" id="protocols" name="protocols" value="{{ node.protocols }}">
+            </div>
+            <div class="mb-3">
+                <label for="secret_key" class="form-label">密钥</label>
+                <input type="text" class="form-control" id="secret_key" name="secret_key" value="{{ node.secret_key }}">
+            </div>
+            <div class="mb-3">
+                <label for="status" class="form-label">状态</label>
+                <select class="form-select" id="status" name="status">
+                    <option value="online" {% if node.status == 'online' %}selected{% endif %}>online</option>
+                    <option value="offline" {% if node.status == 'offline' %}selected{% endif %}>offline</option>
+                    <option value="suspended" {% if node.status == 'suspended' %}selected{% endif %}>suspended</option>
+                    <option value="deleted" {% if node.status == 'deleted' %}selected{% endif %}>deleted</option>
+                </select>
+            </div>
+            <input type="hidden" name="secret_key" value="{{ node.secret_key }}">  {# 隐藏的 secret_key 字段 #}
+            <button type="submit" class="btn btn-primary">更新节点</button>
+            <a href="{{ url_for('node.dashboard') }}" class="btn btn-secondary">取消</a>
+        </form>
+    </div>
 {% endblock %}

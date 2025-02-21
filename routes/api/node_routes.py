@@ -1,4 +1,5 @@
-from flask import Blueprint, request, jsonify, render_template, url_for
+from flask import Blueprint, request, jsonify, render_template, url_for, flash, redirect, session, current_app, \
+    get_flashed_messages
 from models import db, Node, Rule
 import datetime
 import secrets
@@ -16,44 +17,54 @@ def dashboard():
 @node_bp.route('/node/create', methods=['POST'])
 def register_node():
     """注册或更新节点"""
-    data = request.get_json()
+    data = request.form  # 使用 request.form 而不是 request.get_json()
     if not data:
-        return jsonify({'message': 'Bad Request: 没有提供输入数据'}), 400
+        flash('Bad Request: 没有提供输入数据', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 1. 数据验证 (检查必要的字段是否存在且有效)
-    required_fields = ['ip_address', 'port', 'role', 'protocols', 'secret_key']  # name 不再是必需的
+    required_fields = ['ip_address', 'port', 'role', 'protocols']  # name 不再是必需的
     for field in required_fields:
         if field not in data or not data.get(field):  # 使用 .get() 避免 KeyError
-            return jsonify({'message': f'Bad Request: 缺少或空值必需字段: {field}'}), 400
+            flash(f'Bad Request: 缺少或空值必需字段: {field}', 'danger')
+            return redirect(url_for('node.dashboard'))
 
-    if not isinstance(data['port'], int):
-        return jsonify({'message': 'Bad Request: 端口必须是整数'}), 400
+    try:
+        port = int(data['port'])
+        if port < 1 or port > 65535:  # 检查端口范围
+            flash('Bad Request: 端口必须是1-65535之间的整数', 'danger')
+            return redirect(url_for('node.dashboard'))
+    except ValueError:
+        flash('Bad Request: 端口必须是整数', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     valid_roles = ['ingress', 'egress', 'both']
     if data['role'] not in valid_roles:
-        return jsonify({'message': f'Bad Request: 无效的角色。必须是以下之一: {", ".join(valid_roles)}'}), 400
+        flash(f'Bad Request: 无效的角色。必须是以下之一: {", ".join(valid_roles)}', 'danger')
+        return redirect(url_for('node.dashboard'))
 
 
     # 2. 检查是否已注册 (根据 IP 地址和端口)
-    existing_node = Node.query.filter_by(ip_address=data['ip_address'], port=data['port']).first()
+    existing_node = Node.query.filter_by(ip_address=data['ip_address'], port=port).first()
     if existing_node:
         # 更新信息
         existing_node.name = data.get('name', str(uuid.uuid4())) #更新name，如果没有就生成uuid
         existing_node.role = data['role']
         existing_node.protocols = data['protocols']
         #  安全地处理 secret_key 更新! (考虑一个单独的、更安全的端点)
-        existing_node.secret_key = data['secret_key']
+        existing_node.secret_key = data.get('secret_key', existing_node.secret_key) #如果没有输入就使用旧的
         existing_node.status = "online"
         existing_node.last_heartbeat = datetime.datetime.utcnow()
         existing_node.last_modified = datetime.datetime.utcnow()  # 记录修改时间
         db.session.commit()
-        return jsonify({'message': '节点已更新', 'node_id': existing_node.id}), 200
+        flash('节点已更新', 'success')
+        return redirect(url_for('node.dashboard'))
 
     # 3. 创建新节点
     new_node = Node(
-        name=str(uuid.uuid4()),  # 使用 UUID 生成节点名称
+        name=data.get('name', str(uuid.uuid4())),  # 使用 UUID 生成节点名称
         ip_address=data['ip_address'],
-        port=data['port'],
+        port=port,
         role=data['role'],
         protocols=data['protocols'],
         secret_key=data.get('secret_key', secrets.token_urlsafe(16)),  # 如果未提供，则安全生成
@@ -64,10 +75,12 @@ def register_node():
 
     try:
         db.session.commit()
-        return jsonify({'message': '节点已注册', 'node_id': new_node.id}), 201
+        flash('节点已注册', 'success')
+        return redirect(url_for('node.dashboard'))
     except Exception as e:
         db.session.rollback()
-        return jsonify({'message': f'数据库错误: {str(e)}'}), 500
+        flash(f'数据库错误: {str(e)}', 'danger')
+        return redirect(url_for('node.dashboard'))
 
 @node_bp.route('/node/config/<int:node_id>', methods=['GET'])
 def config(node_id):
@@ -75,12 +88,14 @@ def config(node_id):
     try:
         node = Node.query.get_or_404(node_id)
     except Exception as e:  # 捕获可能的数据库查询错误
-        return jsonify({'message': f'服务器内部错误: {str(e)}'}), 500
+        flash(f'服务器内部错误: {str(e)}', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 验证 secret_key
     secret_key = request.headers.get('X-Secret-Key')
     if not secret_key or secret_key != node.secret_key:
-        return jsonify({'message': '未授权'}), 401
+        flash('未授权', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 获取适用于该节点的规则
     if node.role == "ingress" or node.role == "both":
@@ -88,7 +103,8 @@ def config(node_id):
     elif node.role == "egress" or node.role == "both":
         rules = Rule.query.filter(Rule.entry_node_id != None).all()  # 更正后的筛选
     else:
-        return jsonify({'message': "Bad Request: 节点角色错误"}), 400
+        flash("Bad Request: 节点角色错误", 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 构建 JSON 响应
     config_data = {
@@ -144,38 +160,140 @@ def heartbeat(node_id):
     # 可以根据 'data' 更新其他信息，如负载等。
     db.session.commit()
     return jsonify({'message': '已收到心跳'})
-
 @node_bp.route('/node/command/<int:node_id>', methods=['POST'])
-def send_command_route(node_id):  # 重命名以避免名称冲突
-    """向节点发送命令"""
+def send_command_route(node_id):
+    """
+    向节点发送命令。
+
+    该 API 接受 POST 请求，其中请求体应该包含 JSON 格式的数据，
+    包含一个名为 'command' 的字段。
+    """
+    # 1. 检查节点是否存在
     node = Node.query.get_or_404(node_id)
-    secret_key = request.headers.get('X-Secret-Key')
-    if not secret_key or secret_key != node.secret_key:
-        return jsonify({'message': '未授权'}), 401
 
-    data = request.get_json()
-    if not data or 'command' not in data:
-        return jsonify({'message': 'Bad Request: 缺少命令'}), 400
+    # 2. 验证授权
+    secret_key = session.get('secret_key')
+    if not secret_key or secret_key != current_app.config['SECRET_KEY']:
+        print(f"Unauthorized access attempt for node {node_id} from {request.remote_addr}")  # 记录未授权尝试
+        return jsonify({'status': 'error', 'message': '未授权'}), 401  # 401 Unauthorized
 
-    command = data['command']
-    agent_response_data = send_command(node, command)  # 假设 send_command 在其他地方定义
+    # 3. 获取并解析 JSON 数据
+    try:
+        data = request.get_json()
+        if not data or 'command' not in data:
+            return jsonify({'status': 'error', 'message': "无效的 JSON 数据：需要包含 'command' 字段"}), 400  # 400 Bad Request
+        command = data['command']
+        #print(f"节点 {node.name} 收到命令: {command}")
 
-    if agent_response_data and agent_response_data.get('success'):
-        message = agent_response_data.get('message', "命令执行成功")
-        # 根据命令结果更新节点状态
-        if command in ('start', 'restart'):
-            node.status = 'online'
-        elif command == 'stop':
-            node.status = 'offline'
-        elif command == 'suspend':
-            node.status = 'suspended'
-        elif command == 'delete':  # 如果有删除节点的命令
-            node.status = 'deleted'
-        db.session.commit()
-    else:
-        message = agent_response_data.get('message', "命令执行失败") + ". " + agent_response_data.get('error', "")
+    except (TypeError, ValueError) as e:  # 捕获 JSON 解析错误
+        print(f"JSON parsing error: {e}")
+        return jsonify({'status': 'error', 'message': '无效的请求数据或 JSON 格式错误'}), 400  # 400 Bad Request
 
-    return jsonify({'message': message, 'status': node.status, 'agent_response': agent_response_data}), 200
+    # 4. 发送命令并处理响应
+    try:
+        agent_response_data = send_command(node, command)  # 假设 send_command 在其他地方定义
+
+        if not agent_response_data:
+            agent_response_data = {}  # 避免 NoneType 错误
+
+        if agent_response_data.get('success'):
+            message = agent_response_data.get('message', "命令执行成功")
+            # 根据命令结果更新节点状态
+            if command in ('start', 'restart'):
+                node.status = 'online'
+            elif command == 'stop':
+                node.status = 'offline'
+            elif command == 'suspend':
+                node.status = 'suspended'
+            elif command == 'delete':  # 如果有删除节点的命令
+                node.status = 'deleted'
+                # db.session.delete(node)  # 如果是删除，可能需要在另一处处理节点的删除
+            db.session.commit()
+            return jsonify({'status': 'success', 'message': message, 'category': 'success'}), 200  # 200 OK
+        else:
+            message = agent_response_data.get('message', "命令执行失败") + ". " + agent_response_data.get('error', "")
+            return jsonify({'status': 'error', 'message': message, 'category': 'danger'}), 200 #  或其他适当的状态码，通常是 200
+    except Exception as e:  # 捕获 send_command 过程中可能发生的异常
+        db.session.rollback() # 回滚数据库操作，防止数据不一致
+        print(f"Error sending command to agent: {e}")
+        return jsonify({'status': 'error', 'message': f"发送命令时发生错误: {e}", 'category': 'danger'}), 500  # 500 Internal Server Error
+
+@node_bp.route('/node/command/test/<int:node_id>', methods=['POST'])
+def send_command_route_test(node_id):
+    """
+    向节点发送命令。
+
+    该 API 接受 POST 请求，其中请求体应该包含 JSON 格式的数据，
+    包含一个名为 'command' 的字段。
+
+    错误处理：
+    *   如果请求方法不是 POST，返回 405 Method Not Allowed。
+    *   如果未授权（session 中没有 secret_key 或者 secret_key 不匹配），
+        重定向到控制面板。
+    *   如果 JSON 解析失败，返回 400 Bad Request。
+    *   如果 JSON 中缺少 'command' 字段，返回 400 Bad Request。
+    *   如果在发送命令过程中发生错误，或者 agent 返回错误信息，
+        显示警告消息，并重定向到控制面板。
+    *   成功时，显示成功消息，并重定向到控制面板。
+    """
+    # 1. 检查节点是否存在
+    node = Node.query.get_or_404(node_id)
+
+    # 2. 验证授权
+    secret_key = session.get('secret_key')
+    if not secret_key or secret_key != current_app.config['SECRET_KEY']:
+        print(f"Unauthorized access attempt for node {node_id} from {request.remote_addr}")  # 记录未授权尝试
+        flash('未授权', 'danger')
+        return redirect(url_for('node.control_panel', node_id=node_id))
+
+    # 3. 获取并解析 JSON 数据
+    try:
+        data = request.get_json()
+        if not data or 'command' not in data:
+            flash("无效的 JSON 数据：需要包含 'command' 字段", 'danger')
+            return redirect(url_for('node.control_panel', node_id=node.id))
+        command = data['command']
+        print(f"节点 {node.name} 收到命令: {command}")
+
+    except (TypeError, ValueError) as e: # 捕获 JSON 解析错误
+        print(f"JSON parsing error: {e}")
+        flash('无效的请求数据或 JSON 格式错误', 'danger')
+        return redirect(url_for('node.control_panel', node_id=node.id))
+
+
+    # 4. 发送命令并处理响应
+    try:
+        agent_response_data = send_command(node, command)  # 假设 send_command 在其他地方定义
+        if not agent_response_data:
+            agent_response_data = {}  # 避免 NoneType 错误
+
+        if agent_response_data.get('success'):
+            message = agent_response_data.get('message', "命令执行成功")
+            # 根据命令结果更新节点状态
+            if command in ('start', 'restart'):
+                node.status = 'online'
+            elif command == 'stop':
+                node.status = 'offline'
+            elif command == 'suspend':
+                node.status = 'suspended'
+            elif command == 'delete':  # 如果有删除节点的命令
+                node.status = 'deleted'
+            db.session.commit()
+            flash(message, 'success')
+        else:
+            message = agent_response_data.get('message', "命令执行失败") + ". " + agent_response_data.get('error', "")
+            flash(message, 'danger')
+
+    except Exception as e: # 捕获 send_command 过程中可能发生的异常
+        print(f"Error sending command to agent: {e}")
+        flash(f"发送命令时发生错误: {e}", 'danger') # 更友好的错误信息
+        agent_response_data = {} # 避免后续代码出错
+
+    # 5. 将 agent 响应存储在 session 中（可选）
+    session['agent_response'] = agent_response_data  # 存储 agent 响应以便在模板中显示
+    messages = get_flashed_messages(with_categories=True)  # 获取 flash 消息
+    # 6. 重定向到控制面板
+    return redirect(url_for('node.control_panel', node_id=node.id, messages=messages))
 
 @node_bp.route('/node/update_form/<int:node_id>', methods=['GET'])
 def update_form(node_id):
@@ -191,12 +309,14 @@ def update_node(node_id):
     # 1. 身份验证
     secret_key = request.form.get('secret_key')  # 从表单数据中获取 X-Secret-Key
     if not secret_key or secret_key != node.secret_key:
-        return jsonify({'message': '未授权'}), 401
+        flash('未授权', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 2. 获取请求数据
     data = request.form  # 使用 request.form 而不是 request.get_json()
     if not data:
-        return jsonify({'message': 'Bad Request: 没有提供数据'}), 400
+        flash('Bad Request: 没有提供数据', 'danger')
+        return redirect(url_for('node.dashboard'))
 
     # 3. 数据验证和更新
     # 允许更新的字段
@@ -210,7 +330,8 @@ def update_node(node_id):
                 # 验证状态更新
                 valid_statuses = ['online', 'offline', 'suspended', 'deleted']
                 if value not in valid_statuses:
-                    return jsonify({'message': f'Bad Request: 无效状态。必须是以下之一: {", ".join(valid_statuses)}'}), 400
+                    flash(f'Bad Request: 无效状态。必须是以下之一: {", ".join(valid_statuses)}', 'danger')
+                    return redirect(url_for('node.dashboard'))
                 node.status = value
             elif key == 'name':
                 node.name = value #更新name
@@ -221,13 +342,18 @@ def update_node(node_id):
     node.last_modified = datetime.datetime.utcnow()
 
     # 5. 提交数据库更改
-    db.session.commit()
+    try:
+        db.session.commit()
+        flash('节点更新成功', 'success')
+    except Exception as e:
+        db.session.rollback()
+        flash(f'更新失败: {str(e)}', 'danger')
+    return redirect(url_for('node.dashboard'))
 
-    return jsonify({
-        'message': '节点更新成功',
-        'node_id': node.id,
-        'redirect_url': url_for('node.dashboard')  # 为前端添加 redirect_url
-    }), 200
+@node_bp.route('/node/add_node_form', methods=['GET'])
+def add_node_form():
+    """呈现添加节点的表单"""
+    return render_template('add_node_form.html')
 
 def register_node_blueprint(app):
     """注册节点蓝图"""
