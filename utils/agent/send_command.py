@@ -18,4 +18,5 @@ def send_command_old(node, command):
         return {'success': False, 'message': f"Failed to send command to node: {str(e)}"}
 
 def send_command(node, command):
+
     return {'success': True, 'message': f"成功发送"}

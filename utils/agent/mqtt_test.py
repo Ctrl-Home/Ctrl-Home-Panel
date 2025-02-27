@@ -1,7 +1,9 @@
 import paho.mqtt.publish as publish
+import paho.mqtt.client as mqtt
 import yaml
 
 config_file = "command_config.yaml"  # 配置文件名
+mqtt_broker_host="10.1.0.177"
 
 def load_command_config(config_file):
     """
@@ -25,8 +27,27 @@ def load_command_config(config_file):
         return None
 
 
+def connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port=1883):
+    """
+    连接到 MQTT Broker。
+
+    Args:
+        mqtt_broker_host (str, optional): MQTT Broker 的主机地址。默认为 "10.1.0.177"。
+        mqtt_broker_port (int, optional): MQTT Broker 的端口号。默认为 1883。
+
+    Returns:
+        mqtt.Client: MQTT 客户端实例。如果连接失败，返回 None。
+    """
+    client = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2) # 创建 MQTT 客户端实例
+    try:
+        client.connect(mqtt_broker_host, mqtt_broker_port, 60) # 连接到 Broker，keepalive 设为 60 秒
+        return client
+    except Exception as e:
+        print(f"连接 MQTT Broker '{mqtt_broker_host}:{mqtt_broker_port}' 失败: {e}")
+        return None
+
 def send_command(brand, product_type, operation, params=None,
-                 mqtt_broker_host="mqtt.eclipseprojects.io", mqtt_broker_port=1883, topic_prefix="node",
+                 mqtt_broker_host="10.1.0.177", mqtt_broker_port=1883, topic_prefix="node",
                  config_file="command_config.yaml"):
     """
     根据品牌、产品类型和操作，从配置文件中查找并发送 MQTT 命令。
@@ -61,7 +82,7 @@ def send_command(brand, product_type, operation, params=None,
     mqtt_command = mqtt_command_template  # 默认使用模板
     if params:
         try:
-            mqtt_command = mqtt_command_template.format(**params)  # 尝试格式化命令字符串
+            mqtt_command = mqtt_command_template.format(**params) # 尝试格式化命令字符串
         except KeyError as e:
             error_message = f"参数 '{e}' 在提供的 params 中未找到，但命令模板需要。"
             print(error_message)
@@ -71,16 +92,27 @@ def send_command(brand, product_type, operation, params=None,
             print(error_message)
             return {'success': False, 'message': error_message}
 
-    node_name = f"{brand}_{product_type}"  # 假设节点名称可以根据品牌和产品类型生成，你可以根据实际情况调整
+
+    node_name = f"{brand}_{product_type}" # 假设节点名称可以根据品牌和产品类型生成，你可以根据实际情况调整
     topic = f"{topic_prefix}/{node_name}/command"
 
+    client = connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port) # 连接 MQTT Broker
+    if not client:
+        return {'success': False, 'message': f"无法连接到 MQTT Broker '{mqtt_broker_host}:{mqtt_broker_port}'。"}
+
     try:
-        publish.single(topic, payload=mqtt_command, hostname=mqtt_broker_host, port=mqtt_broker_port)
+        publish.single(topic, payload=mqtt_command, hostname=mqtt_broker_host, port=mqtt_broker_port) # 使用 publish.single，它内部也会处理连接，这里连接函数其实可以移除，保留publish.single的连接方式更简洁。
+        # 或者使用 client.publish 方法 (需要先启动 client 的 loop，这里为了简化示例，仍然使用 publish.single)
+        # client.publish(topic, payload=mqtt_command)
         return {'success': True, 'message': f"成功发送命令 '{mqtt_command}' 到节点 '{node_name}'，主题: '{topic}'"}
     except Exception as e:
         error_message = f"发送命令到节点 '{node_name}' 失败: {e}"
         print(error_message)
         return {'success': False, 'message': error_message}
+    finally:
+        if client: # 确保 client 对象存在才断开连接
+            client.disconnect() # 断开 MQTT 连接
+
 
 
 if __name__ == '__main__':
