@@ -16,3 +16,9 @@ brands:
       switch: # 产品类型：开关
         operations:
           toggle: "TOGGLE"
+  test:
+    product_types:
+      sensor1:
+        status:
+          temp: "temperature"
+          humi: "humidity"

@@ -27,7 +27,7 @@ def load_command_config(config_file):
         return None
 
 
-def connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port=1883):
+def connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port=11883):
     """
     连接到 MQTT Broker。
 
@@ -47,7 +47,7 @@ def connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port=1883):
         return None
 
 def send_command(brand, product_type, operation, params=None,
-                 mqtt_broker_host="10.1.0.177", mqtt_broker_port=1883, topic_prefix="node",
+                 mqtt_broker_host="10.1.0.177", mqtt_broker_port=11883, topic_prefix="node",
                  config_file="command_config.yaml"):
     """
     根据品牌、产品类型和操作，从配置文件中查找并发送 MQTT 命令。

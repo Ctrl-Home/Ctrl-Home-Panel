@@ -65,6 +65,7 @@
                             <td>{{ node.last_heartbeat or '从未' }}</td>
                             <td>
                                 <a href="{{ url_for('node.update_form', node_id=node.id) }}" class="btn btn-sm btn-warning">更新</a>
+                                <a href="{{ url_for('node.list_node_form', node_id=node.id) }}" class="btn btn-sm btn-info">详情</a>
                                 <a href="{{ url_for('node.control_panel', node_id=node.id) }}" class="btn btn-sm btn-info">控制</a>
                             </td>
                         </tr>
