@@ -1,6 +1,6 @@
 # 独立出来的 send_command 函数
 import requests
-
+from utils.mqtt.mqtt import publish_mqtt_message, MQTT_TOPIC_COMMAND, MQTT_TOPIC_RESPONSE, MQTT_TOPIC_STATUS
 
 def send_command_old(node, command):
     """Internal function to send a command to a node."""
@@ -18,4 +18,7 @@ def send_command_old(node, command):
         return {'success': False, 'message': f"Failed to send command to node: {str(e)}"}
 
 def send_command(node, command):
+    print(node)
+    print(command)
+
     return {'success': True, 'message': f"成功发送"}
