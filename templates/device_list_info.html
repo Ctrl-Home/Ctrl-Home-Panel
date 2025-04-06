@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Form and JSON</title>
+</head>
+<body>
+
+  <form id="myForm">
+    <button type="button" onclick="getData()">Get Data</button>
+  </form>
+
+  <div id="output">
+    <p>Humidity: <span id="humidity"></span></p>
+    <p>Temperature: <span id="temperature"></span></p>
+  </div>
+
+  <script>
+    function getData() {
+      const url = '/node/test/get_sensor1';
+
+      fetch(url)
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`Network response was not ok: ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          // Check if data_received is true
+          if (data.data_received) {
+            // Update the individual spans with the values
+            document.getElementById('humidity').textContent = data.humidity;
+            document.getElementById('temperature').textContent = data.temperature;
+          } else {
+            // Handle the case where data_received is false
+            document.getElementById('output').textContent = 'Data not received.';
+          }
+
+          // (Optional) Still display the full JSON for debugging/inspection
+          const pre = document.createElement('pre');  // Use a <pre> for formatted output
+          pre.textContent = JSON.stringify(data, null, 2);
+          document.getElementById('output').appendChild(pre);
+
+        })
+        .catch(error => {
+          console.error('There has been a problem with your fetch operation:', error);
+          document.getElementById('output').textContent = 'Error: ' + error.message;
+        });
+    }
+  </script>
+
+</body>
+</html>

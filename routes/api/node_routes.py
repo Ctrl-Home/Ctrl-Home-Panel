@@ -1,9 +1,13 @@
+import time
+
 from flask import Blueprint, request, jsonify, render_template, url_for, flash, redirect, session, current_app, \
     get_flashed_messages
 from models import db, Node, Rule
 import datetime
 import secrets
 import uuid  # 导入 uuid 模块
+
+from utils.agent.mqtt_subscribe import MqttSubscriber, process_sensor_data
 from utils.agent.send_command import send_command
 
 node_bp = Blueprint('node', __name__)
@@ -354,6 +358,56 @@ def update_node(node_id):
 def add_node_form():
     """呈现添加节点的表单"""
     return render_template('add_node_form.html')
+
+@node_bp.route('/node/list_node_form', methods=['GET'])
+def list_node_form():
+    return render_template('device_list_info.html')
+
+@node_bp.route('/node/test/get_sensor1', methods=['GET'])
+def get_sensor():
+    """呈现添加节点的表单，并获取 MQTT 数据"""
+
+    # 使用一个内部类来封装 MQTT 客户端和数据处理
+    class DataFetcher:
+        def __init__(self):
+            self.temperature = None
+            self.humidity = None
+            self.data_received = False
+            self.last_update_time = None
+
+        def fetch_data(self):
+            def callback_with_return(data):
+                """内部回调函数，用于处理数据并设置 DataFetcher 的属性"""
+                result = process_sensor_data(data)
+                if result:
+                    self.temperature, self.humidity, self.data_received = result
+                    self.last_update_time = time.time()
+
+            subscriber = MqttSubscriber(
+                broker_host="10.1.0.177",
+                broker_port=11883,
+                topic="/test/sensor1",
+                callback=callback_with_return  # 使用内部回调
+            )
+            subscriber.start()
+            subscriber.wait_for_messages(10)
+            subscriber.stop()
+
+            if self.last_update_time is not None and time.time() - self.last_update_time > 15:
+                self.data_received = False
+                self.temperature = None
+                self.humidity = None
+
+    # 创建 DataFetcher 实例并获取数据
+    fetcher = DataFetcher()
+    fetcher.fetch_data()
+
+    # 构建并返回 JSON 响应
+    return jsonify({
+        'temperature': fetcher.temperature,
+        'humidity': fetcher.humidity,
+        'data_received': fetcher.data_received
+    })
 
 def register_node_blueprint(app):
     """注册节点蓝图"""

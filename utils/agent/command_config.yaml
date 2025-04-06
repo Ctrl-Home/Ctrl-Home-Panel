@@ -1,0 +1,24 @@
+brands:
+  brandA:  # 品牌 A
+    product_types:
+      light: # 产品类型：灯
+        operations:
+          turn-on: "POWER ON"      # 操作：开灯 -> MQTT 命令 "POWER ON"
+          turn-off: "POWER OFF"    # 操作：关灯 -> MQTT 命令 "POWER OFF"
+          brightness: "BRIGHTNESS {brightness}" # 操作：调节亮度 -> MQTT 命令 "BRIGHTNESS {brightness}"，{brightness} 是参数占位符
+      fan:   # 产品类型：风扇
+        operations:
+          speed_low: "FAN SPEED LOW"
+          speed_medium: "FAN SPEED MEDIUM"
+          speed_high: "FAN SPEED HIGH"
+  brandB:  # 品牌 B
+    product_types:
+      switch: # 产品类型：开关
+        operations:
+          toggle: "TOGGLE"
+  test:
+    product_types:
+      sensor1:
+        status:
+          temp: "temperature"
+          humi: "humidity"
