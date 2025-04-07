@@ -8,7 +8,7 @@ import secrets
 import uuid  # 导入 uuid 模块
 
 from utils.agent.mqtt_subscribe import MqttSubscriber, process_sensor_data
-from utils.agent.send_command import send_command
+
 
 node_bp = Blueprint('node', __name__)
 
@@ -194,7 +194,7 @@ def send_command_route(node_id):
         return jsonify({'status': 'error', 'message': '无效的请求数据或 JSON 格式错误'}), 400  # 400 Bad Request
 
     # 4. 发送命令并处理响应
-    try:
+    #try:
         agent_response_data = send_command(node, command)  # 假设 send_command 在其他地方定义
 
         if not agent_response_data:
@@ -266,7 +266,7 @@ def send_command_route_test(node_id):
 
 
     # 4. 发送命令并处理响应
-    try:
+    #try:
         agent_response_data = send_command(node, command)  # 假设 send_command 在其他地方定义
         if not agent_response_data:
             agent_response_data = {}  # 避免 NoneType 错误

@@ -115,7 +115,7 @@ def send_command(brand, product_type, operation, params=None,
         if client: # 确保 client 对象存在才断开连接
             client.disconnect() # 断开 MQTT 连接
 
-def send_status(brand,sensor_name,mqtt_broker_host="mumble.2k2.cc", mqtt_broker_port=11883, topic_prefix="/device"):
+def send_status(humi,temp,brand,room_name,sensor_name,mqtt_broker_host="mumble.2k2.cc", mqtt_broker_port=11883, topic_prefix="/device"):
     """
     发送状态到 MQTT Broker。
 
@@ -132,13 +132,13 @@ def send_status(brand,sensor_name,mqtt_broker_host="mumble.2k2.cc", mqtt_broker_
     """
     # 这里可以添加发送状态的逻辑
     client = connect_mqtt_broker(mqtt_broker_host, mqtt_broker_port) # 连接 MQTT Broker
-    node_name= f"{brand}/{sensor_name}" # 假设节点名称可以根据品牌和产品类型生成，你可以根据实际情况调整
+    node_name= f"{brand}/{sensor_name}/{room_name}" # 假设节点名称可以根据品牌和产品类型生成，你可以根据实际情况调整
     topic_path = f"{topic_prefix}/{node_name}/status"  # 构建主题路径
-
+    print(topic_path)
     sensor_status={
             "params": {
-                "temp": 25.0,
-                "humi": 60.0
+                "temp": temp,
+                "humi": humi
             }
     }
 
@@ -158,7 +158,7 @@ def send_status(brand,sensor_name,mqtt_broker_host="mumble.2k2.cc", mqtt_broker_
 
 if __name__ == '__main__':
 
-    send_status("test",sensor_name="sensor123")
+    send_status(humi=2,temp=31.0,brand="test",room_name="living_room",sensor_name="sensor123")
 
     # 开灯 (BrandA, Light, On)
     result_on = send_command("brandA", "light", "turn-on", config_file=config_file)

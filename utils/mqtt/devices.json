@@ -1,0 +1,42 @@
+  {
+  "sensor_livingroom_temp": {
+    "device_id": "sensor_livingroom_temp",
+    "name": "客厅温湿度传感器",
+    "type": "sensor",
+    "status_topic": "/device/test/sensor123/living_room/status",
+    "data_keys": ["temperature", "humidity"],
+    "payload_format": "nested_params"
+  },
+  "ac_livingroom": {
+    "device_id": "ac_livingroom",
+    "name": "客厅空调",
+    "type": "actuator",
+    "command_topic": "/device/test/ac1/living_room/command",
+    "commands": {
+      "set_state_temp": {
+         "description": "设置模式和目标温度",
+         "payload_template": {"state": "{state}", "target_temp": "{target_temp}"}
+      },
+      "turn_off": {
+        "description": "关闭空调",
+        "payload_template": {"state": "off"}
+      },
+      "turn_on": {
+          "description": "打开空调",
+          "payload_template": {"state": "cool", "target_temp": 26}
+      }
+    }
+  },
+  "light_bedroom": {
+    "device_id": "light_bedroom",
+    "name": "卧室灯",
+    "type": "actuator",
+    "command_topic": "/device/test/light/bedroom/command",
+    "commands": {
+        "set_state": {
+            "description": "设置开关状态",
+            "payload_template": {"power": "{state}"}
+        }
+    }
+  }
+}
