@@ -1,6 +1,6 @@
 import os
 import logging
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 # Removed werkzeug.security import as it's handled in the model now
 # from werkzeug.security import generate_password_hash
 
