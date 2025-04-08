@@ -2,8 +2,7 @@ from flask_sqlalchemy import SQLAlchemy
 from flask_login import UserMixin
 import bcrypt
 from datetime import datetime
-
-db = SQLAlchemy()
+from extensions import db  # <<< IMPORT the instance from extensions.py
 
 class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -16,13 +15,22 @@ class User(UserMixin, db.Model):
 
     @property
     def password(self):
+        """
+        Password property getter. Raises an error to prevent reading the password.
+        You should use verify_password() to check passwords.
+        """
         raise AttributeError('password is not a readable attribute')
 
     @password.setter
     def password(self, password):
+        """
+        Password property setter. Hashes the password and stores the hash.
+        This method is called when you assign a value to user.password.
+        """
         self.password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     def verify_password(self, password):
+        """Checks if the provided password matches the stored hash."""
         return bcrypt.checkpw(password.encode('utf-8'), self.password_hash.encode('utf-8'))
 
     def __repr__(self):
@@ -61,8 +69,6 @@ class Rule(db.Model):
     status = db.Column(db.String(255), nullable=True, default='pending')
     def __repr__(self):
         return f'<Rule {self.name}>'
-
-
 
 class Node(db.Model):
     id = db.Column(db.Integer, primary_key=True)

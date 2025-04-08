@@ -1,9 +1,19 @@
 database:
   #uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"  # 你的数据库连接字符串
- uri: "mysql+mysqlconnector://ctrl_home:zfHTJ38aCZiPFzNX@matrix.2k2.cc:3306/ctrl_home"
+  #uri: "mysql+mysqlconnector://ctrl_home:zfHTJ38aCZiPFzNX@matrix.2k2.cc:3306/ctrl_home"
+ uri: "sqlite:///ctrl_home.db"
 admin_user:
   username: "admin"
   password: "00..Zdw999"
   role: "admin"
 
 secret_key: "your_secret_key" # 修改为你自己的密钥
+
+jwt_secret_key: "your_secret_key"
+
+mqtt:
+  broker_host: "10.1.0.177"
+  broker_port: 11883
+  username: "" # 可选
+  password: "" # 可选
+  topic_base: "/smart_home/api" # API 使用的 Topic Base

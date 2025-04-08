@@ -1,54 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <title>Form and JSON</title>
-</head>
-<body>
+{% extends "base.html" %}
 
-  <form id="myForm">
-    <button type="button" onclick="getData()">Get Data</button>
-  </form>
+{% block title %}设备列表{% endblock %}
 
-  <div id="output">
-    <p>Humidity: <span id="humidity"></span></p>
-    <p>Temperature: <span id="temperature"></span></p>
-  </div>
+{% block content %}
+<div class="container">
+    <h2>设备列表</h2>
+    <div class="row" id="deviceList">
+        <!-- 设备列表将通过JavaScript动态加载 -->
+    </div>
+</div>
+{% endblock %}
 
-  <script>
-    function getData() {
-      const url = '/node/test/get_sensor1';
-
-      fetch(url)
-        .then(response => {
-          if (!response.ok) {
-            throw new Error(`Network response was not ok: ${response.status}`);
-          }
-          return response.json();
-        })
-        .then(data => {
-          // Check if data_received is true
-          if (data.data_received) {
-            // Update the individual spans with the values
-            document.getElementById('humidity').textContent = data.humidity;
-            document.getElementById('temperature').textContent = data.temperature;
-          } else {
-            // Handle the case where data_received is false
-            document.getElementById('output').textContent = 'Data not received.';
-          }
-
-          // (Optional) Still display the full JSON for debugging/inspection
-          const pre = document.createElement('pre');  // Use a <pre> for formatted output
-          pre.textContent = JSON.stringify(data, null, 2);
-          document.getElementById('output').appendChild(pre);
-
-        })
-        .catch(error => {
-          console.error('There has been a problem with your fetch operation:', error);
-          document.getElementById('output').textContent = 'Error: ' + error.message;
-        });
+{% block scripts %}
+<script>
+    // 格式化设备状态显示
+    function formatDeviceStatus(status) {
+        if (!status || !status.data) return '离线';
+        const data = status.data;
+        if (typeof data === 'object') {
+            return Object.entries(data)
+                .map(([key, value]) => `${key}: ${value}`)
+                .join(', ');
+        }
+        return String(data);
     }
-  </script>
 
-</body>
-</html>
+    // 渲染设备卡片
+    function renderDeviceCard(device, status) {
+        return `
+            <div class="col-md-4 mb-4">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">${device.name}</h5>
+                        <p class="card-text">
+                            <strong>类型:</strong> ${device.type}<br>
+                            <strong>ID:</strong> ${device.device_id}<br>
+                            <strong>状态:</strong> <span id="status-${device.device_id}">${formatDeviceStatus(status)}</span>
+                        </p>
+                        ${device.type === 'actuator' ? `
+                            <div class="btn-group">
+                                <button class="btn btn-primary" onclick="sendCommand('${device.device_id}', 'turn_on')">开启</button>
+                                <button class="btn btn-danger" onclick="sendCommand('${device.device_id}', 'turn_off')">关闭</button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>
+        `;
+    }
+
+    // 发送设备命令
+    async function sendCommand(deviceId, command) {
+        try {
+            const result = await apiCall(`/devices/${deviceId}/command`, 'POST', {
+                command: command
+            });
+            showAlert('命令发送成功');
+        } catch (error) {
+            showAlert('命令发送失败: ' + error.message, 'danger');
+        }
+    }
+
+    // 加载设备列表
+    async function loadDevices() {
+        try {
+            const devices = await apiCall('/devices');
+            const statuses = await apiCall('/status/all');
+            
+            const deviceListHtml = Object.values(devices)
+                .map(device => renderDeviceCard(device, statuses[device.device_id]))
+                .join('');
+            
+            document.getElementById('deviceList').innerHTML = deviceListHtml;
+
+            // 为每个设备启动状态轮询
+            Object.values(devices).forEach(device => {
+                startDevicePolling(device.device_id, (status) => {
+                    const statusElement = document.getElementById(`status-${device.device_id}`);
+                    if (statusElement) {
+                        statusElement.textContent = formatDeviceStatus(status);
+                    }
+                });
+            });
+        } catch (error) {
+            showAlert('加载设备列表失败: ' + error.message, 'danger');
+        }
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', loadDevices);
+</script>
+{% endblock %}danger');
+        }
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', loadRules);
+</script>
+{% endblock %}

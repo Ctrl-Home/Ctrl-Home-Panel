@@ -1,43 +1,109 @@
-{% extends 'base.html' %}
+{% extends "base.html" %}
 
-{% block title %}主界面 - JustRelay{% endblock %}
+{% block title %}规则列表{% endblock %}
 
 {% block content %}
-<h2>欢迎来到 Ctrl+Home</h2>
-<p>这是您的主界面，您可以在这里查看您的转发规则和进行管理。</p>
+<div class="container">
+    <h2>规则列表</h2>
+    <div class="mb-3">
+        <button class="btn btn-primary" onclick="location.href='/rule/add'">添加新规则</button>
+    </div>
+    <div class="table-responsive">
+        <table class="table">
+            <thead>
+                <tr>
+                    <th>名称</th>
+                    <th>状态</th>
+                    <th>触发条件</th>
+                    <th>动作</th>
+                    <th>操作</th>
+                </tr>
+            </thead>
+            <tbody id="ruleList">
+                <!-- 规则列表将通过JavaScript动态加载 -->
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}
 
-<h3>转发规则列表</h3>
-<table class="table">
-    <thead>
-        <tr>
-            <th>规则名</th>
-            <th>设备名</th>
-            <th>状态</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for rule in relay_rules %}
-        <tr>
-            <td>{{ rule.name }}</td>
-            <td>{{ node.name }}</td>
-            <td>{{ node.status }}</td>
-            <td>
-                <form method="post" action="/device/control/reload/{{ rule.id }}" style="display:inline-block;">
-                    <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('确定要重启规则 {{ rule.name }} 吗?')">重启</button>
-                </form>
-                <a href="/device/control/edit/{{ rule.id }}" class="btn btn-sm btn-primary">编辑</a>
-                <form method="post" action="/device/control/delete/{{ rule.id }}" style="display:inline-block;">
-                    <button type="submit" class="btn btn-sm btn-danger" onclick="return confirm('确定要删除规则 {{ rule.name }} 吗?')">删除</button>
-                </form>
-            </td>
-        </tr>
-        {% else %}
-        <tr>
-            <td colspan="5">暂无转发规则，<a href="/device/control/add">点击添加</a>。</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+{% block scripts %}
+<script>
+    // 格式化规则触发条件
+    function formatTrigger(trigger) {
+        return `当 ${trigger.data_key} ${trigger.operator} ${trigger.value}`;
+    }
 
-<a href="/device/control/add" class="btn btn-success">添加新的转发规则</a>
+    // 格式化规则动作
+    function formatAction(action) {
+        return `执行 ${action.device_id} 的 ${action.command}`;
+    }
+
+    // 渲染规则行
+    function renderRuleRow(rule) {
+        return `
+            <tr>
+                <td>${rule.name}</td>
+                <td>
+                    <div class="form-check form-switch">
+                        <input class="form-check-input" type="checkbox" 
+                            ${rule.enabled ? 'checked' : ''} 
+                            onchange="toggleRule('${rule.id}', this.checked)">
+                    </div>
+                </td>
+                <td>${formatTrigger(rule.trigger.condition)}</td>
+                <td>${formatAction(rule.action)}</td>
+                <td>
+                    <button class="btn btn-sm btn-info" onclick="location.href='/rule/edit/${rule.id}'">编辑</button>
+                    <button class="btn btn-sm btn-danger" onclick="deleteRule('${rule.id}')">删除</button>
+                </td>
+            </tr>
+        `;
+    }
+
+    // 切换规则启用状态
+    async function toggleRule(ruleId, enabled) {
+        try {
+            const rule = await apiCall(`/rules/${ruleId}`);
+            rule.enabled = enabled;
+            await apiCall(`/rules/${ruleId}`, 'PUT', rule);
+            showAlert(`规则${enabled ? '启用' : '禁用'}成功`);
+        } catch (error) {
+            showAlert('更新规则状态失败: ' + error.message, 'danger');
+            // 恢复checkbox状态
+            const checkbox = document.querySelector(`input[onchange*="${ruleId}"]`);
+            if (checkbox) checkbox.checked = !enabled;
+        }
+    }
+
+    // 删除规则
+    async function deleteRule(ruleId) {
+        if (!confirm('确定要删除这条规则吗？')) return;
+        
+        try {
+            await apiCall(`/rules/${ruleId}`, 'DELETE');
+            showAlert('规则删除成功');
+            loadRules(); // 重新加载规则列表
+        } catch (error) {
+            showAlert('删除规则失败: ' + error.message, 'danger');
+        }
+    }
+
+    // 加载规则列表
+    async function loadRules() {
+        try {
+            const rules = await apiCall('/rules');
+            const ruleListHtml = rules
+                .map(rule => renderRuleRow(rule))
+                .join('');
+            
+            document.getElementById('ruleList').innerHTML = ruleListHtml;
+        } catch (error) {
+            showAlert('加载规则列表失败: ' + error.message, 'danger');
+        }
+    }
+
+    // 页面加载完成后执行
+    document.addEventListener('DOMContentLoaded', loadRules);
+</script>
 {% endblock %}

@@ -5,7 +5,8 @@ import logging
 import time
 import os
 from collections import deque # 用于命令历史记录
-from typing import TYPE_CHECKING, Deque, Dict, Any
+from typing import TYPE_CHECKING, Deque, Dict, Any, Optional
+from threading import Thread, Event
 
 # 假设这些类在以下路径，根据你的项目调整
 from utils.mqtt.logic.rule_engine import RuleEngine
@@ -32,6 +33,10 @@ class MqttController:
         self.state_manager = state_manager # 存储 StateManager 实例
         self.client = mqtt.Client(client_id=self.client_id)
         self.subscribed_topics = set()
+        self.connected = False
+        self.stop_event = Event()
+        self.reconnect_delay = 5  # 重连延迟时间（秒）
+        self.max_reconnect_attempts = 5  # 最大重连尝试次数
 
         # --- 添加命令历史记录 ---
         self.command_history: Deque[Dict[str, Any]] = deque(maxlen=COMMAND_HISTORY_SIZE)
@@ -142,8 +147,10 @@ class MqttController:
                 logging.error(f"订阅新增主题失败，错误码: {result}, 主题: {list(topics_to_subscribe)}")
         else:
             logging.info("无需新增订阅。")
+
     def _on_connect(self, client, userdata, flags, rc):
         if rc == 0:
+            self.connected = True
             logging.info(f"成功连接到 MQTT Broker: {self.broker_host}:{self.broker_port}")
             # --- 修改订阅逻辑 ---
             # 1. 从 DeviceManager 获取所有传感器的状态主题
@@ -161,19 +168,13 @@ class MqttController:
                 logging.warning("没有找到需要订阅的主题 (来自设备或规则)。")
             # --- 结束修改订阅逻辑 ---
         else:
+            self.connected = False
             logging.error(f"连接失败，返回码 {rc}")
 
     def _on_disconnect(self, client, userdata, rc):
+        self.connected = False
         logging.info(f"与 MQTT Broker 断开连接，结果代码 {rc}。尝试重连...")
-
-    def _on_message(self, client, userdata, msg):
-        try:
-            payload_str = msg.payload.decode('utf-8')
-            logging.debug(f"收到主题 '{msg.topic}' 上的消息: {payload_str}")
-            # 将消息传递给规则引擎处理
-            self.rules_engine.process_message(msg.topic, payload_str)
-        except Exception as e:
-            logging.error(f"处理主题 {msg.topic} 上的消息时出错: {e}", exc_info=True)
+        self._attempt_reconnect()
 
     def _on_log(self, client, userdata, level, buf):
          # logging.debug(f"MQTT Log: {buf}")
@@ -204,6 +205,21 @@ class MqttController:
             #理论上不应该执行到这里，因为 RuleEngine 应该已经处理了
             logging.warning(f"接收到未处理的动作类型: {action_type}。 Action: {action}")
 
+    def _attempt_reconnect(self):
+        """尝试重新连接到MQTT代理"""
+        attempts = 0
+        while not self.connected and attempts < self.max_reconnect_attempts and not self.stop_event.is_set():
+            try:
+                attempts += 1
+                logging.info(f"尝试重新连接 (尝试 {attempts}/{self.max_reconnect_attempts})")
+                self.client.reconnect()
+                time.sleep(self.reconnect_delay)
+            except Exception as e:
+                logging.error(f"重连尝试失败: {e}")
+                time.sleep(self.reconnect_delay)
+        
+        if not self.connected and not self.stop_event.is_set():
+            logging.error("达到最大重连尝试次数，停止重连")
 
     def start(self):
         """连接到 broker 并启动 MQTT 循环。"""
@@ -215,10 +231,12 @@ class MqttController:
             logging.info("MQTT 客户端循环已启动。")
         except Exception as e:
             logging.error(f"连接或启动 MQTT 循环失败: {e}", exc_info=True)
+            self._attempt_reconnect()
 
     def stop(self):
         """停止 MQTT 循环并断开连接。"""
         logging.info("停止 MQTT 客户端循环...")
+        self.stop_event.set()
         self.client.loop_stop()
         logging.info("与 MQTT broker 断开连接...")
         self.client.disconnect()
