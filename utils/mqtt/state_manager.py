@@ -4,8 +4,8 @@ import time
 from threading import RLock # 引入可重入锁，保证线程安全
 from typing import Dict, Any, Optional
 
-# 假设 DeviceManager 在这个路径，根据你的项目调整
-from device_manager import DeviceManager
+# 修正导入路径
+from utils.mqtt.device_manager import DeviceManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

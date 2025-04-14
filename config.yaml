@@ -1,9 +1,35 @@
 database:
   #uri: "mysql+mysqlconnector://justrelay:2SAFGNjBrcSSfXN3@160.202.248.154:3306/justrelay"  # 你的数据库连接字符串
- uri: "mysql+mysqlconnector://ctrl_home:zfHTJ38aCZiPFzNX@matrix.2k2.cc:3306/ctrl_home"
+  uri: "mysql+mysqlconnector://ctrl_home:zfHTJ38aCZiPFzNX@matrix.2k2.cc:3306/ctrl_home"
 admin_user:
   username: "admin"
   password: "00..Zdw999"
   role: "admin"
 
 secret_key: "your_secret_key" # 修改为你自己的密钥
+
+# 应用程序设置
+app:
+  debug: false # 设置为false关闭调试模式
+  host: "0.0.0.0"
+  port: 15000
+
+jwt:
+  secret_key: "jwt_super_secret" # JWT专用密钥
+  access_token_expires: 3600 # 1小时
+  refresh_token_expires: 604800 # 7天
+  cookie_secure: false # 开发环境可关闭
+  cookie_samesite: "None" # 跨站cookie
+
+cors:
+  allowed_origins:
+    - "http://localhost:56002" # 前端开发地址
+    - "http://mobile-app-domain" # 移动端域名
+
+# MQTT连接配置
+mqtt:
+  broker_host: "mumble.2k2.cc"
+  broker_port: 11883
+  client_id_prefix: "justrelay-panel-" # 客户端ID前缀，会自动添加时间戳
+  username: "" # 如果需要认证，请填写
+  password: "" # 如果需要认证，请填写

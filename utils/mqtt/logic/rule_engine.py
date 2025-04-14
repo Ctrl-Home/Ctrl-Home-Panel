@@ -5,28 +5,63 @@ from utils.mqtt.device_manager import DeviceManager # 引入 DeviceManager
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
-# evaluate_condition 函数保持不变...
 def evaluate_condition(condition, data_value):
-    op = condition['operator']
-    threshold = condition['value']
+    """
+    评估规则条件是否满足。
+    
+    Args:
+        condition (dict): 包含 operator 和 value 的条件字典
+        data_value: 要检查的数据值
+    
+    Returns:
+        bool: 如果条件满足则返回 True，否则 False
+    """
+    operator = condition.get("operator")
+    value = condition.get("value")
+    
+    # 确保合理比较 - 尝试转换类型
     try:
-        num_data_value = float(data_value)
-        num_threshold = float(threshold)
-        if op == '>': return num_data_value > num_threshold
-        elif op == '<': return num_data_value < num_threshold
-        elif op == '>=': return num_data_value >= num_threshold
-        elif op == '<=': return num_data_value <= num_threshold
-        elif op == '==': return num_data_value == num_threshold
-        elif op == '!=': return num_data_value != num_threshold
-        else:
-            logging.warning(f"不支持的操作符: {op}")
-            return False
-    except (ValueError, TypeError) as e:
-         if op == '==': return str(data_value) == str(threshold)
-         elif op == '!=': return str(data_value) != str(threshold)
-         else:
-            logging.warning(f"无法对值 '{data_value}' 使用操作符 '{op}' 进行数字比较: {e}")
-            return False
+        if isinstance(data_value, (int, float)) and isinstance(value, (str)):
+            # 数据值是数字但比较值是字符串，尝试将比较值转为数字
+            value = float(value) if '.' in value else int(value)
+        elif isinstance(data_value, str) and isinstance(value, (int, float)):
+            # 数据值是字符串但比较值是数字，尝试将数据值转为数字
+            try:
+                data_value = float(data_value) if '.' in data_value else int(data_value)
+            except:
+                # 如果转换失败，保持原类型
+                pass
+    except:
+        # 如果转换失败，跳过并使用原始类型
+        logging.warning(f"类型转换失败, data_value={data_value}({type(data_value)}), value={value}({type(value)})")
+    
+    logging.info(f"===调试信息=== 评估条件: {data_value}({type(data_value).__name__}) {operator} {value}({type(value).__name__})")
+    
+    result = False
+    
+    if operator == "==":
+        result = data_value == value
+    elif operator == "!=":
+        result = data_value != value
+    elif operator == ">":
+        result = data_value > value
+    elif operator == ">=":
+        result = data_value >= value
+    elif operator == "<":
+        result = data_value < value
+    elif operator == "<=":
+        result = data_value <= value
+    elif operator == "contains":
+        if isinstance(data_value, str) and isinstance(value, str):
+            result = value in data_value
+    elif operator == "in":
+        if isinstance(value, list):
+            result = data_value in value
+    else:
+        logging.warning(f"未知的操作符: '{operator}'")
+    
+    logging.info(f"===调试信息=== 条件评估结果: {result}")
+    return result
 
 class RuleEngine:
     def __init__(self, device_manager: DeviceManager, rules_file="rules.json"):
@@ -109,87 +144,125 @@ class RuleEngine:
 
         try:
             payload_dict = json.loads(payload_str)
-            logging.debug(f"处理主题 '{topic}' 上的消息: {payload_dict}")
+            logging.info(f"===调试信息=== RuleEngine处理主题 '{topic}' 上的消息: {payload_dict}")
         except json.JSONDecodeError:
             logging.warning(f"无法解码主题 '{topic}' 上的 JSON payload: {payload_str}")
             return
 
+        logging.info(f"===调试信息=== 开始检查 {len(self.rules)} 条规则")
+        rules_checked = 0
+        enabled_rules = 0
+        topic_matched_rules = 0
+
         for rule in self.rules:
+            rules_checked += 1
+            if not rule.get("enabled", False):
+                continue
+            
+            enabled_rules += 1
             trigger = rule.get("trigger", {})
             trigger_topic = trigger.get("topic")
             condition = trigger.get("condition")
 
+            logging.info(f"===调试信息=== 检查规则ID: {rule.get('id')}, 名称: {rule.get('name')}, 主题: {trigger_topic}")
+
             # 检查主题是否匹配
-            if topic == trigger_topic and condition:
-                data_key = condition.get("data_key")
-                data_value = None
+            if topic == trigger_topic:
+                topic_matched_rules += 1
+                logging.info(f"===调试信息=== 主题匹配成功: {topic} == {trigger_topic}")
+                
+                if condition:
+                    data_key = condition.get("data_key")
+                    data_value = None
 
-                # --- 处理嵌套的 'params' ---
-                trigger_device = None
-                # 尝试根据 topic 找到对应的设备，以确定 payload 格式
-                for dev_id, dev_info in self.device_manager.get_all_devices().items():
-                     if dev_info.get("status_topic") == topic:
-                         trigger_device = dev_info
-                         break
+                    logging.info(f"===调试信息=== 需要检查条件: {data_key} {condition.get('operator')} {condition.get('value')}")
 
-                # 如果找到了设备并且格式是 'nested_params'
-                if trigger_device and trigger_device.get("payload_format") == "nested_params":
-                    if "params" in payload_dict and isinstance(payload_dict.get("params"), dict):
-                        if data_key in payload_dict["params"]:
-                            data_value = payload_dict["params"][data_key]
-                # 否则，尝试直接在顶层查找 (兼容旧格式或简单格式)
-                elif data_key in payload_dict:
-                     data_value = payload_dict[data_key]
-                # --- 结束处理嵌套 'params' ---
+                    # --- 处理嵌套的 'params' ---
+                    trigger_device = None
+                    # 尝试根据 topic 找到对应的设备，以确定 payload 格式
+                    for dev_id, dev_info in self.device_manager.get_all_devices().items():
+                         if dev_info.get("status_topic") == topic:
+                             trigger_device = dev_info
+                             logging.info(f"===调试信息=== 找到对应设备: {dev_id}")
+                             break
+
+                    # 如果找到了设备并且格式是 'nested_params'
+                    if trigger_device and trigger_device.get("payload_format") == "nested_params":
+                        logging.info(f"===调试信息=== 设备使用嵌套参数格式")
+                        if "params" in payload_dict and isinstance(payload_dict.get("params"), dict):
+                            if data_key in payload_dict["params"]:
+                                data_value = payload_dict["params"][data_key]
+                                logging.info(f"===调试信息=== 从嵌套params中获取值: {data_key}={data_value}")
+                    # 否则，尝试直接在顶层查找 (兼容旧格式或简单格式)
+                    elif data_key in payload_dict:
+                         data_value = payload_dict[data_key]
+                         logging.info(f"===调试信息=== 从顶层获取值: {data_key}={data_value}")
+                    else:
+                         logging.warning(f"===调试信息=== 在消息中找不到键 {data_key}")
+                    # --- 结束处理嵌套 'params' ---
 
 
-                if data_value is not None:
-                    logging.debug(f"检查规则 '{rule.get('name', '未命名')}'，值为 {data_key}={data_value}")
+                    if data_value is not None:
+                        logging.info(f"===调试信息=== 检查规则 '{rule.get('name', '未命名')}'，条件: {data_key} {condition.get('operator')} {condition.get('value')}, 实际值: {data_value}")
 
-                    if evaluate_condition(condition, data_value):
-                        logging.info(f"规则 '{rule.get('name', '未命名')}' 已触发！")
-                        action = rule.get("action")
-                        if action:
-                            # --- 处理动作 ---
-                            action_type = action.get("type")
+                        if evaluate_condition(condition, data_value):
+                            logging.info(f"===调试信息=== 条件匹配成功! 规则 '{rule.get('name', '未命名')}' 已触发！")
+                            action = rule.get("action")
+                            if action:
+                                # --- 处理动作 ---
+                                action_type = action.get("type")
+                                logging.info(f"===调试信息=== 执行动作类型: {action_type}")
 
-                            if action_type == "device_command":
-                                device_id = action.get("device_id")
-                                command_name = action.get("command")
-                                params = action.get("params", {}) # 获取规则中定义的参数
+                                if action_type == "device_command":
+                                    device_id = action.get("device_id")
+                                    command_name = action.get("command")
+                                    params = action.get("params", {}) # 获取规则中定义的参数
+                                    logging.info(f"===调试信息=== 设备命令: 设备={device_id}, 命令={command_name}, 参数={params}")
 
-                                if device_id and command_name:
-                                    # 从 DeviceManager 获取命令主题和 payload 模板
-                                    command_topic, payload_template = self.device_manager.get_command_details(device_id, command_name)
+                                    if device_id and command_name:
+                                        # 从 DeviceManager 获取命令主题和 payload 模板
+                                        command_topic, payload_template = self.device_manager.get_command_details(device_id, command_name)
+                                        logging.info(f"===调试信息=== 获取命令详情: 主题={command_topic}, 模板={payload_template}")
 
-                                    if command_topic and payload_template is not None:
-                                        # 使用模板和参数构建最终的 payload
-                                        final_payload = self.device_manager.build_payload(payload_template, params)
+                                        if command_topic and payload_template is not None:
+                                            # 使用模板和参数构建最终的 payload
+                                            final_payload = self.device_manager.build_payload(payload_template, params)
+                                            logging.info(f"===调试信息=== 构建的payload: {final_payload}")
 
-                                        if final_payload is not None:
-                                            # 准备要传递给 action_handler 的信息
-                                            resolved_action = {
-                                                "type": "mqtt_publish", # 最终都是发布 MQTT
-                                                "topic": command_topic,
-                                                "payload": final_payload
-                                            }
-                                            self.action_handler(resolved_action)
+                                            if final_payload is not None:
+                                                # 准备要传递给 action_handler 的信息
+                                                resolved_action = {
+                                                    "type": "mqtt_publish", # 最终都是发布 MQTT
+                                                    "topic": command_topic,
+                                                    "payload": final_payload
+                                                }
+                                                logging.info(f"===调试信息=== 调用action_handler执行动作: {resolved_action}")
+                                                self.action_handler(resolved_action)
+                                            else:
+                                                logging.error(f"为规则 '{rule.get('name', '未命名')}' 构建 payload 失败。")
                                         else:
-                                            logging.error(f"为规则 '{rule.get('name', '未命名')}' 构建 payload 失败。")
+                                             logging.warning(f"无法为规则 '{rule.get('name', '未命名')}' 获取设备 '{device_id}' 的命令 '{command_name}' 详情。")
                                     else:
-                                         logging.warning(f"无法为规则 '{rule.get('name', '未命名')}' 获取设备 '{device_id}' 的命令 '{command_name}' 详情。")
-                                else:
-                                     logging.warning(f"规则 '{rule.get('name', '未命名')}' 的 device_command 缺少 device_id 或 command。")
+                                         logging.warning(f"规则 '{rule.get('name', '未命名')}' 的 device_command 缺少 device_id 或 command。")
 
-                            elif action_type == "mqtt_publish": # 保留直接发布的能力
-                                if "topic" in action and "payload" in action:
-                                     self.action_handler(action) # 直接传递
-                                else:
-                                     logging.warning(f"规则 '{rule.get('name', '未命名')}' 的 mqtt_publish 动作缺少 topic 或 payload。")
+                                elif action_type == "mqtt_publish": # 保留直接发布的能力
+                                    if "topic" in action and "payload" in action:
+                                         logging.info(f"===调试信息=== 直接MQTT发布: 主题={action.get('topic')}, payload={action.get('payload')}")
+                                         self.action_handler(action) # 直接传递
+                                    else:
+                                         logging.warning(f"规则 '{rule.get('name', '未命名')}' 的 mqtt_publish 动作缺少 topic 或 payload。")
 
+                                else:
+                                    logging.warning(f"规则 '{rule.get('name', '未命名')}' 中不支持的动作类型: {action_type}")
                             else:
-                                logging.warning(f"规则 '{rule.get('name', '未命名')}' 中不支持的动作类型: {action_type}")
+                                logging.warning(f"规则 '{rule.get('name', '未命名')}' 已触发但未定义动作。")
                         else:
-                            logging.warning(f"规则 '{rule.get('name', '未命名')}' 已触发但未定义动作。")
-                # else: 在 payload 中未找到 data_key
-            # else: 主题不匹配或无条件
+                            logging.info(f"===调试信息=== 条件不匹配: {data_value} {condition.get('operator')} {condition.get('value')}")
+                    else:
+                        logging.warning(f"===调试信息=== 在消息中找不到有效的 {data_key} 值")
+                else:
+                    logging.warning(f"===调试信息=== 规则 '{rule.get('name', '未命名')}' 主题匹配但没有条件定义")
+            else:
+                logging.info(f"===调试信息=== 主题不匹配: {topic} != {trigger_topic}")
+
+        logging.info(f"===调试信息=== 规则检查完成: 检查了{rules_checked}条规则, 启用{enabled_rules}条, 主题匹配{topic_matched_rules}条")

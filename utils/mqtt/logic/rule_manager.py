@@ -10,8 +10,8 @@ import uuid
 from typing import TYPE_CHECKING, List, Dict, Optional, Any
 
 if TYPE_CHECKING:
-    from rule_engine import RuleEngine # Adjust import path as needed
-    from mqtt_controller import MqttController    # Adjust import path as needed
+    from utils.mqtt.logic.rule_engine import RuleEngine
+    from utils.mqtt.logic.mqtt_controller import MqttController
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 

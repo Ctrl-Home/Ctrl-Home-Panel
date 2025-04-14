@@ -7,9 +7,10 @@ import os
 from collections import deque # 用于命令历史记录
 from typing import TYPE_CHECKING, Deque, Dict, Any
 
-# 假设这些类在以下路径，根据你的项目调整
+# 修正导入路径
 from utils.mqtt.logic.rule_engine import RuleEngine
 from utils.mqtt.device_manager import DeviceManager
+
 if TYPE_CHECKING:
     from utils.mqtt.state_manager import StateManager # 引入 StateManager (用于类型提示)
 
@@ -46,25 +47,23 @@ class MqttController:
     # _on_connect, _on_disconnect, _on_log, update_subscriptions 保持不变...
 
     def _on_message(self, client, userdata, msg):
-        """Callback 当收到消息时 - 更新状态管理器"""
-        payload_str = ""
         try:
             payload_str = msg.payload.decode('utf-8')
-            logging.debug(f"收到主题 '{msg.topic}' 上的消息: {payload_str}")
-            payload_dict = json.loads(payload_str)
-
-            # --- 更新状态管理器 ---
-            self.state_manager.update_state_from_mqtt(msg.topic, payload_dict)
-
-            # 将消息传递给规则引擎处理 (规则引擎可能也需要原始 dict)
-            self.rules_engine.process_message(msg.topic, payload_str) # 规则引擎仍然使用字符串 payload
-
-        except json.JSONDecodeError:
-             logging.warning(f"无法解码主题 '{msg.topic}' 上的 JSON payload: {payload_str}")
-             # 即使解码失败，也可以考虑是否更新状态为 "error" 或记录原始字符串
-             # self.state_manager.update_state_from_mqtt(msg.topic, {"error": "invalid_json", "raw": payload_str})
-        except UnicodeDecodeError:
-            logging.warning(f"无法将主题 '{msg.topic}' 上的 payload 解码为 UTF-8: {msg.payload}")
+            logging.info(f"===调试信息=== 收到主题 '{msg.topic}' 上的消息: {payload_str}")
+            
+            # 解析消息内容以便调试
+            try:
+                payload_dict = json.loads(payload_str)
+                logging.info(f"===调试信息=== 解析后的消息内容: {payload_dict}")
+                
+                # 调用状态管理器更新设备状态
+                self.state_manager.update_state_from_mqtt(msg.topic, payload_dict)
+                logging.info(f"===调试信息=== 已更新状态管理器中的设备状态")
+            except json.JSONDecodeError as e:
+                logging.warning(f"===调试信息=== 消息内容不是有效JSON: {payload_str}，错误：{e}")
+            
+            # 将消息传递给规则引擎处理
+            self.rules_engine.process_message(msg.topic, payload_str)
         except Exception as e:
             logging.error(f"处理主题 {msg.topic} 上的消息时出错: {e}", exc_info=True)
 
@@ -81,24 +80,22 @@ class MqttController:
                 try:
                     payload_str = json.dumps(payload_obj)
                     logging.info(f"执行动作: 发布到 '{target_topic}', Payload: {payload_str}")
-                    result, mid = self.client.publish(target_topic, payload_str, qos=1)
-
-                    if result == mqtt.MQTT_ERR_SUCCESS:
-                         # --- 记录命令历史 ---
-                         timestamp = time.time()
-                         command_record = {
-                             "timestamp": timestamp,
-                             "topic": target_topic,
-                             "payload": payload_obj, # 存储原始对象，便于API返回JSON
-                             "success": True,
-                             "mid": mid # 消息 ID
-                         }
-                         self.command_history.append(command_record)
-                         logging.debug(f"命令已记录到历史: {command_record}")
+                    
+                    # 添加命令到历史记录
+                    command_record = {
+                        "timestamp": time.time(),
+                        "topic": target_topic,
+                        "payload": payload_obj,
+                        "source": "rule_engine"
+                    }
+                    self.command_history.append(command_record)
+                    logging.info(f"===调试信息=== 已添加命令到历史记录，当前历史记录长度: {len(self.command_history)}")
+                    
+                    result = self.client.publish(target_topic, payload_str, qos=1)
+                    if result.rc == mqtt.MQTT_ERR_SUCCESS:
+                        logging.info(f"===调试信息=== 成功发布消息到主题 '{target_topic}'")
                     else:
-                         logging.error(f"发布 MQTT 消息到主题 '{target_topic}' 失败，错误码: {result}")
-                         # 可以考虑也记录失败的尝试
-                         # self.command_history.append({... "success": False, "error_code": result ...})
+                        logging.error(f"===调试信息=== 发布消息失败，错误码: {result.rc}")
 
                 except TypeError as e:
                     logging.error(f"无法将动作 payload 序列化为 JSON: {payload_obj}。错误: {e}")
@@ -153,12 +150,15 @@ class MqttController:
             # 3. 合并并去重
             topics_to_subscribe = set(sensor_topics) | set(rule_topics)
 
+            logging.info(f"===调试信息=== 传感器主题: {sensor_topics}")
+            logging.info(f"===调试信息=== 规则主题: {rule_topics}")
+
             if topics_to_subscribe:
                 subscriptions = [(topic, 0) for topic in topics_to_subscribe]
                 client.subscribe(subscriptions)
                 logging.info(f"已订阅主题: {list(topics_to_subscribe)}")
             else:
-                logging.warning("没有找到需要订阅的主题 (来自设备或规则)。")
+                logging.error("没有找到需要订阅的主题 (来自设备或规则)。MQTT服务将无法接收消息！")
             # --- 结束修改订阅逻辑 ---
         else:
             logging.error(f"连接失败，返回码 {rc}")
@@ -166,44 +166,9 @@ class MqttController:
     def _on_disconnect(self, client, userdata, rc):
         logging.info(f"与 MQTT Broker 断开连接，结果代码 {rc}。尝试重连...")
 
-    def _on_message(self, client, userdata, msg):
-        try:
-            payload_str = msg.payload.decode('utf-8')
-            logging.debug(f"收到主题 '{msg.topic}' 上的消息: {payload_str}")
-            # 将消息传递给规则引擎处理
-            self.rules_engine.process_message(msg.topic, payload_str)
-        except Exception as e:
-            logging.error(f"处理主题 {msg.topic} 上的消息时出错: {e}", exc_info=True)
-
     def _on_log(self, client, userdata, level, buf):
-         # logging.debug(f"MQTT Log: {buf}")
-         pass
-
-    def _execute_action(self, action):
-        """执行由规则引擎解析后的动作 (预期是 mqtt_publish 类型)。"""
-        action_type = action.get("type")
-
-        # 现在只处理由 RuleEngine 解析好的 mqtt_publish 动作
-        if action_type == "mqtt_publish":
-            target_topic = action.get("topic")
-            payload_obj = action.get("payload") # payload 应该是 Python 对象 (dict, list, etc.)
-
-            if target_topic and payload_obj is not None:
-                try:
-                    # 将 Python 对象转换为 JSON 字符串
-                    payload_str = json.dumps(payload_obj)
-                    logging.info(f"执行动作: 发布到 '{target_topic}', Payload: {payload_str}")
-                    self.client.publish(target_topic, payload_str, qos=1) # 使用 QoS 1 保证送达
-                except TypeError as e:
-                    logging.error(f"无法将动作 payload 序列化为 JSON: {payload_obj}。错误: {e}")
-                except Exception as e:
-                     logging.error(f"发布 MQTT 消息失败: {e}", exc_info=True)
-            else:
-                logging.warning(f"无法执行 mqtt_publish 动作: 缺少 target_topic 或 payload。 Action: {action}")
-        else:
-            #理论上不应该执行到这里，因为 RuleEngine 应该已经处理了
-            logging.warning(f"接收到未处理的动作类型: {action_type}。 Action: {action}")
-
+        if "SUBSCRIBE" in buf or "PUBLISH" in buf:
+            logging.debug(f"MQTT客户端日志: {buf}")
 
     def start(self):
         """连接到 broker 并启动 MQTT 循环。"""
@@ -223,3 +188,47 @@ class MqttController:
         logging.info("与 MQTT broker 断开连接...")
         self.client.disconnect()
         logging.info("MQTT 客户端已停止。")
+        
+    def publish(self, topic, payload, qos=1, retain=False):
+        """
+        直接发布MQTT消息到指定主题
+        
+        Args:
+            topic (str): 要发布到的主题
+            payload (dict|str): 要发布的数据，若为dict则转为JSON字符串
+            qos (int): 服务质量级别 (0, 1, 2)
+            retain (bool): 是否作为保留消息
+            
+        Returns:
+            bool: 发布是否成功
+        """
+        try:
+            payload_str = payload
+            if isinstance(payload, dict) or isinstance(payload, list):
+                payload_str = json.dumps(payload)
+                
+            logging.info(f"发布消息到主题 '{topic}': {payload_str}")
+            
+            # 添加到命令历史
+            command_record = {
+                "timestamp": time.time(),
+                "topic": topic,
+                "payload": payload,
+                "source": "api"
+            }
+            self.command_history.append(command_record)
+            
+            # 发布消息
+            result = self.client.publish(topic, payload_str, qos=qos, retain=retain)
+            success = result.rc == mqtt.MQTT_ERR_SUCCESS
+            
+            if success:
+                logging.info(f"成功发布消息到主题 '{topic}'")
+            else:
+                logging.error(f"发布消息失败，错误码: {result.rc}")
+                
+            return success
+            
+        except Exception as e:
+            logging.error(f"发布MQTT消息失败: {e}", exc_info=True)
+            return False

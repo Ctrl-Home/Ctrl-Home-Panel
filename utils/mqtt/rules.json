@@ -1,0 +1,30 @@
+[
+  {
+    "action": "{payload: {state: cool, target_temp: 24}, topic: home/devices/livingroom/ac/set, type: mqtt_publish}",
+    "enabled": true,
+    "id": "rule-001",
+    "name": "客厅温度超过30度，自动开启空调",
+    "trigger": {
+      "condition": {
+        "data_key": "temperature",
+        "operator": ">",
+        "value": 30
+      },
+      "topic": "home/sensors/livingroom/temp"
+    }
+  },
+  {
+    "action": "{payload: {state: open}, topic: home/devices/bedroom/window/set, type: mqtt_publish}",
+    "enabled": true,
+    "id": "d4d72813-0430-4ae7-8a3e-f3db90815a69",
+    "name": "卧室温度超过25度，自动开窗",
+    "trigger": {
+      "condition": {
+        "data_key": "temperature",
+        "operator": ">",
+        "value": 25
+      },
+      "topic": "home/sensors/bedroom/temp"
+    }
+  }
+]

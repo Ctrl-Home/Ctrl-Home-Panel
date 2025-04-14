@@ -1,50 +1,100 @@
-from flask import Flask, render_template, request, flash, redirect, url_for, session
-from flask_login import login_user, logout_user, current_user
+from flask import jsonify, request
+from flask_jwt_extended import jwt_required, get_jwt_identity
 from models import db, User
 
 def register_user_routes(app):
-    @app.route('/register', methods=['GET', 'POST'])
+    @app.route('/api/v1/users/register', methods=['POST'])
     def register():
-        if current_user.is_authenticated:
-            return redirect(url_for('index'))
-        if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-            confirm_password = request.form['confirm_password']
-            if password != confirm_password:
-                flash('两次密码输入不一致', 'danger')
-                return render_template('register.html', error="两次密码输入不一致", current_user=current_user)
-            if User.query.filter_by(username=username).first():
-                flash('用户名已存在', 'danger')
-                return render_template('register.html', error="用户名已存在", current_user=current_user)
+        data = request.get_json()
+        if not data or not data.get('username') or not data.get('password'):
+            return jsonify({
+                "code": 400,
+                "message": "需要用户名和密码",
+                "data": None
+            }), 400
+            
+        if data['password'] != data.get('confirm_password', ''):
+            return jsonify({
+                "code": 400,
+                "message": "两次密码输入不一致",
+                "data": None
+            }), 400
 
-            new_user = User(username=username, password=password)
-            db.session.add(new_user)
-            db.session.commit()
-            flash('注册成功，请登录', 'success')
-            return redirect(url_for('login'))
-        return render_template('register.html', current_user=current_user)
+        if User.query.filter_by(username=data['username']).first():
+            return jsonify({
+                "code": 409,
+                "message": "用户名已存在",
+                "data": None
+            }), 409
 
-    @app.route('/login', methods=['GET', 'POST'])
-    def login():
-        if current_user.is_authenticated:
-            return redirect(url_for('index'))
-        if request.method == 'POST':
-            username = request.form['username']
-            password = request.form['password']
-            user = User.query.filter_by(username=username).first()
-            if user and user.verify_password(password):
-                login_user(user)
-                session['secret_key'] = app.config['SECRET_KEY']  # 将 secret_key 存储在 session 中
-                flash('登录成功!', 'success')
-                return redirect(url_for('index'))
-            else:
-                flash('用户名或密码错误', 'danger')
-                return render_template('login.html', error="用户名或密码错误", current_user=current_user)
-        return render_template('login.html', current_user=current_user)
+        new_user = User(username=data['username'], password=data['password'])
+        db.session.add(new_user)
+        db.session.commit()
 
-    @app.route('/logout')
-    def logout():
-        logout_user()
-        flash('您已登出', 'info')
-        return redirect(url_for('login'))
+        return jsonify({
+            "code": 201,
+            "message": "注册成功",
+            "data": {
+                "user_id": new_user.id
+            }
+        }), 201
+
+    @app.route('/api/v1/users/<int:user_id>', methods=['GET'])
+    @jwt_required()
+    def get_user(user_id):
+        current_user_id = get_jwt_identity()
+        if current_user_id != user_id:
+            return jsonify({
+                "code": 403,
+                "message": "无权访问该用户信息",
+                "data": None
+            }), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({
+                "code": 404,
+                "message": "用户不存在",
+                "data": None
+            }), 404
+
+        return jsonify({
+            "code": 200,
+            "message": "success",
+            "data": {
+                "user_id": user.id,
+                "username": user.username,
+                "role": user.role
+            }
+        })
+
+    @app.route('/api/v1/users/<int:user_id>', methods=['PUT'])
+    @jwt_required()
+    def update_user(user_id):
+        current_user_id = get_jwt_identity()
+        if current_user_id != user_id:
+            return jsonify({
+                "code": 403,
+                "message": "无权修改该用户信息",
+                "data": None
+            }), 403
+
+        user = User.query.get(user_id)
+        if not user:
+            return jsonify({
+                "code": 404,
+                "message": "用户不存在",
+                "data": None
+            }), 404
+
+        data = request.get_json()
+        if 'password' in data:
+            user.password = data['password']
+            
+        db.session.commit()
+
+        return jsonify({
+            "code": 200,
+            "message": "用户信息已更新",
+            "data": None
+        })

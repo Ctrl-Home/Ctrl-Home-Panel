@@ -1,42 +1,93 @@
-  {
-  "sensor_livingroom_temp": {
-    "device_id": "sensor_livingroom_temp",
-    "name": "客厅温湿度传感器",
+{
+  "temp_sensor_livingroom": {
+    "id": "temp_sensor_livingroom",
+    "name": "客厅温湿度传感器 (更新测试)",
     "type": "sensor",
-    "status_topic": "/device/test/sensor123/living_room/status",
-    "data_keys": ["temperature", "humidity"],
-    "payload_format": "nested_params"
-  },
-  "ac_livingroom": {
-    "device_id": "ac_livingroom",
-    "name": "客厅空调",
-    "type": "actuator",
-    "command_topic": "/device/test/ac1/living_room/command",
-    "commands": {
-      "set_state_temp": {
-         "description": "设置模式和目标温度",
-         "payload_template": {"state": "{state}", "target_temp": "{target_temp}"}
+    "status_topic": "home/sensors/livingroom/temp",
+    "data_fields": {
+      "humidity": {
+        "name": "湿度",
+        "type": "number",
+        "unit": "%"
       },
-      "turn_off": {
-        "description": "关闭空调",
-        "payload_template": {"state": "off"}
-      },
-      "turn_on": {
-          "description": "打开空调",
-          "payload_template": {"state": "cool", "target_temp": 26}
+      "temperature": {
+        "name": "温度",
+        "type": "number",
+        "unit": "°C"
       }
     }
   },
-  "light_bedroom": {
-    "device_id": "light_bedroom",
-    "name": "卧室灯",
+  "light_livingroom": {
+    "id": "light_livingroom",
+    "name": "客厅灯",
     "type": "actuator",
-    "command_topic": "/device/test/light/bedroom/command",
+    "status_topic": "home/devices/livingroom/light/status",
+    "command_topic": "home/devices/livingroom/light/set",
+    "data_fields": {
+      "state": {
+        "name": "状态",
+        "type": "enum",
+        "values": [
+          "on",
+          "off"
+        ]
+      },
+      "brightness": {
+        "name": "亮度",
+        "type": "number",
+        "min": 0,
+        "max": 100,
+        "unit": "%"
+      }
+    },
     "commands": {
-        "set_state": {
-            "description": "设置开关状态",
-            "payload_template": {"power": "{state}"}
+      "turn_on": {
+        "name": "开灯",
+        "payload_template": {
+          "state": "on"
         }
+      },
+      "turn_off": {
+        "name": "关灯",
+        "payload_template": {
+          "state": "off"
+        }
+      },
+      "set_brightness": {
+        "name": "设置亮度",
+        "params": {
+          "brightness": {
+            "name": "亮度",
+            "type": "number",
+            "min": 0,
+            "max": 100,
+            "unit": "%"
+          }
+        },
+        "payload_template": {
+          "brightness": "{brightness}"
+        }
+      }
+    }
+  },
+  "sensor_1744200811018": {
+    "name": "1",
+    "type": "sensor",
+    "status_topic": "1",
+    "id": "sensor_1744200811018",
+    "data_fields": {
+      "temperature": {
+        "type": "float",
+        "unit": "°C"
+      },
+      "humidity": {
+        "type": "float",
+        "unit": "%"
+      },
+      "light_level": {
+        "type": "float",
+        "unit": "lux"
+      }
     }
   }
 }
